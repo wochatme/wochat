@@ -8,7 +8,8 @@ static const wchar_t txtWin1DT[] = { 0x521b,0x5efa,0x65f6,0x95f4,0xff1a,0 };
 static const wchar_t txtWin1TBD[] = 
 { 0x672c,0x529f,0x80fd,0x6b63,0x5728,0x5f00,0x53d1,0x4e2d,0xff0c,0x8bf7,0x8010,0x5fc3,0x7b49,0x5f85,0xff01,0x003a,0x002d,0x0029,0 };
 
-static const U16 txtWin1_Male[] = { 0x7537,0 };
+static const U16 txtWin1_DOB[]    = { 0x751f,0x65e5,0x672a,0x77e5,0 };
+static const U16 txtWin1_Male[]   = { 0x7537,0 };
 static const U16 txtWin1_Female[] = { 0x5973,0 };
 static const U16 txtWin1_Unkown[] = { 0x62d2,0x7edd,0x56de,0x7b54,0 };
 
@@ -44,19 +45,19 @@ public:
 
 		mode = WIN1_MODE_ME;
 		assert(g_myInfo);
-		assert(g_myInfo->iconLarge);
-		w = g_myInfo->iconLargeW; h = g_myInfo->iconLargeH;
+		assert(g_myInfo->icon128);
+		w = WT_LARGE_ICON_WIDTH;  h = WT_LARGE_ICON_HEIGHT;
 		id = XWIN1_BITMAP_ME_ICON;      bmp = &(m_bmpArray[mode][id]);
 		bmp->id = id; 
-		bmp->data = (U32*)g_myInfo->iconLarge;
+		bmp->data = (U32*)g_myInfo->icon128;
 		bmp->w = w; bmp->h = h;
 
 		w = 32; h = 32;
-		id = XWIN1_BITMAP_ME_PUBLICKEY; bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpKey;    bmp->w = w; bmp->h = h;
-		id = XWIN1_BITMAP_ME_DOB;       bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpDOB;    bmp->w = w; bmp->h = h;
-		id = XWIN1_BITMAP_ME_SEX;       bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpGender; bmp->w = w; bmp->h = h;
-		id = XWIN1_BITMAP_ME_AREA;      bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpArea;   bmp->w = w; bmp->h = h;
-		id = XWIN1_BITMAP_ME_EDIT;      bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpEdit;   bmp->w = w; bmp->h = h;
+		id = XWIN1_BITMAP_ME_PUBLICKEY; bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpKey;      bmp->w = w; bmp->h = h;
+		id = XWIN1_BITMAP_ME_DOB;       bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpDOB;      bmp->w = w; bmp->h = h;
+		id = XWIN1_BITMAP_ME_SEX;       bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpGender;   bmp->w = w; bmp->h = h;
+		id = XWIN1_BITMAP_ME_AREA;      bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpLocation; bmp->w = w; bmp->h = h;
+		id = XWIN1_BITMAP_ME_EDIT;      bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpEdit;     bmp->w = w; bmp->h = h;
 
 		mode = WIN1_MODE_FRIEND;
 		w = 27; h = 27;
@@ -220,7 +221,7 @@ public:
 			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_OTHER1);
 			assert(pTextFormat);
 			lb->Init(((mode << 8) | id), "W1DOB", g_pDWriteFactory, pTextFormat);
-			lb->setText((U16*)L"XXXX", 4);
+			lb->setText((U16*)txtWin1_DOB, 4);
 			m_ctlArray[mode][id] = lb;
 		}
 		else return;
@@ -443,62 +444,72 @@ public:
 			dy = dy + L + gap;
 			xctl->setPosition(dx, dy);
 
-			xctl = m_ctlArray[m_mode][XWIN1_ME_BUTTON_PUBLICKEY];
+			id = XWIN1_ME_BUTTON_EDIT;
+			xctl = m_ctlArray[m_mode][id];
 			assert(nullptr != xctl);
-			dx = gap;
-			dy = T + (gap>>1);
 			sw = xctl->getWidth();
+			sh = xctl->getHeight();
+			dx = w - gap - sw;
+			dy = R - sh;
 			xctl->setPosition(dx, dy);
-			B = xctl->getHeight();
 
-			xctl = m_ctlArray[m_mode][XWIN1_ME_LABEL_PUBLICKEY];
+			id = XWIN1_ME_BUTTON_PUBLICKEY;
+			xctl = m_ctlArray[m_mode][id];
+			assert(nullptr != xctl);
+			sw = xctl->getWidth();
+			sh = xctl->getHeight();
+			dx = gap;
+			dy = T; // +(gap >> 1);
+			xctl->setPosition(dx, dy);
+
+			id = XWIN1_ME_LABEL_PUBLICKEY;
+			xctl = m_ctlArray[m_mode][id];
 			assert(nullptr != xctl);
 			dx = dx + sw + gap;
 			dy = dy + gap - 2;
 			xctl->setPosition(dx, dy);
 
-			xctl = m_ctlArray[m_mode][XWIN1_ME_BUTTON_DOB];
+			id = XWIN1_ME_BUTTON_DOB;
+			xctl = m_ctlArray[m_mode][id];
 			assert(nullptr != xctl);
 			dx = gap;
 			dy = dy + gap*4;
 			xctl->setPosition(dx, dy);
 
-			xctl = m_ctlArray[m_mode][XWIN1_ME_LABEL_DOB];
+			id = XWIN1_ME_LABEL_DOB;
+			xctl = m_ctlArray[m_mode][id];
 			assert(nullptr != xctl);
 			dx = dx + sw + gap;
 			dy = dy + gap - 2;
 			xctl->setPosition(dx, dy);
 
-			xctl = m_ctlArray[m_mode][XWIN1_ME_BUTTON_SEX];
+			id = XWIN1_ME_BUTTON_SEX;
+			xctl = m_ctlArray[m_mode][id];
 			assert(nullptr != xctl);
 			dx = gap;
 			dy = dy + gap*4;
 			xctl->setPosition(dx, dy);
 
-			xctl = m_ctlArray[m_mode][XWIN1_ME_LABEL_SEX];
+			id = XWIN1_ME_LABEL_SEX;
+			xctl = m_ctlArray[m_mode][id];
 			assert(nullptr != xctl);
 			dx = dx + sw + gap;
 			dy = dy + gap;
 			xctl->setPosition(dx, dy);
 
-			xctl = m_ctlArray[m_mode][XWIN1_ME_BUTTON_AREA];
+			id = XWIN1_ME_BUTTON_AREA;
+			xctl = m_ctlArray[m_mode][id];
 			assert(nullptr != xctl);
 			dx = gap;
 			dy = dy + gap * 4;
 			xctl->setPosition(dx, dy);
 
-			xctl = m_ctlArray[m_mode][XWIN1_ME_LABEL_AREA];
+			id = XWIN1_ME_LABEL_AREA;
+			xctl = m_ctlArray[m_mode][id];
 			assert(nullptr != xctl);
 			dx = dx + sw + gap;
 			dy = dy + gap;
 			xctl->setPosition(dx, dy);
-
-			xctl = m_ctlArray[m_mode][XWIN1_ME_BUTTON_EDIT];
-			assert(nullptr != xctl);
-			dx = h - gap - xctl->getWidth();
-			dy = R - xctl->getHeight();
-			xctl->setPosition(dx, dy);
-
 			break;
 		case WIN1_MODE_FRIEND:
 			xctl = m_ctlArray[m_mode][XWIN1_FRIEND_BUTTON_SEARCH];
@@ -576,6 +587,7 @@ public:
 		/* Display the Open dialog box. */
 		if (GetOpenFileName(&ofn) == TRUE)
 		{
+#if 0
 			int fd = 0;
 			if (_wsopen_s(&fd, path, _O_RDONLY | _O_BINARY, _SH_DENYWR, 0) == 0)
 			{
@@ -592,16 +604,16 @@ public:
 					{
 						WT_BITMAPFILEHEADER* fh = (WT_BITMAPFILEHEADER*)bmpbuf;
 						WT_BITMAPINFOHEADER* ih = (WT_BITMAPINFOHEADER*)(bmpbuf + sizeof(WT_BITMAPFILEHEADER));
-						if (ih->biWidth == 128 && ih->biHeight == 128 && ih->biBitCount == 24 && ih->biCompression == 0)
+						if (ih->biWidth == WT_LARGE_ICON_WIDTH && ih->biHeight == WT_LARGE_ICON_HEIGHT && ih->biBitCount == 24 && ih->biCompression == 0)
 						{
-							assert(g_myInfo->iconLarge);
+							assert(g_myInfo->icon128);
 							if (0 == (g_myInfo->property & WT_MYINFO_LARGEICON_ALLOC))
 							{
-								g_myInfo->iconLarge = (U32*)wt_palloc(g_topMemPool, WT_LARGE_ICON_SIZE);
-								if (g_myInfo->iconLarge)
+								g_myInfo->icon128 = (U32*)wt_palloc(g_topMemPool, WT_LARGE_ICON_SIZE);
+								if (g_myInfo->icon128)
 									g_myInfo->property |= WT_MYINFO_LARGEICON_ALLOC;
 							}
-							if (g_myInfo->iconLarge)
+							if (g_myInfo->icon128)
 							{
 								int i, rc;
 								sqlite3* db;
@@ -609,7 +621,7 @@ public:
 								U8 pixelBytes = (U8)(ih->biBitCount >> 3);
 								U8* p = bmpbuf + sizeof(WT_BITMAPFILEHEADER) + sizeof(WT_BITMAPINFOHEADER);
 								U8* q = p + lineByte * (ih->biHeight - 1);
-								U8* b = (U8*)g_myInfo->iconLarge;
+								U8* b = (U8*)g_myInfo->icon128;
 								while (q >= p)
 								{
 									for (i = 0; i < ih->biWidth * pixelBytes; i += pixelBytes)
@@ -619,7 +631,7 @@ public:
 									q -= lineByte;
 								}
 								XBitmap* bmp = &(m_bmpArray[WIN1_MODE_ME][XWIN1_BITMAP_ME_ICON]);
-								bmp->data = (U32*)g_myInfo->iconLarge;
+								bmp->data = (U32*)g_myInfo->icon128;
 								r++;
 								m_status |= DUI_STATUS_NEEDRAW;  // need to redraw this virtual window
 								InvalidateDUIWindow();           // set the gloabl redraw flag so next paint routine will do the paint work
@@ -651,19 +663,15 @@ public:
 										sqlite3_finalize(stmt);
 										if (blob)
 										{
-											memcpy(blob + WT_BLOB_LEN - WT_LARGE_ICON_SIZE, g_myInfo->iconLarge, WT_LARGE_ICON_SIZE);
-											wt_Resize128To32Bmp(g_myInfo->iconLarge, g_myInfo->icon);
+											memcpy(blob + WT_BLOB_LEN - WT_LARGE_ICON_SIZE, g_myInfo->icon128, WT_LARGE_ICON_SIZE);
+											wt_Resize128To32Bmp(g_myInfo->icon128, g_myInfo->icon32);
 
-											sprintf_s((char*)sql, 128, "UPDATE k SET ub=(?),si=(?) WHERE sk='%s'", hexSK);
+											sprintf_s((char*)sql, 128, "UPDATE k SET ub=(?) WHERE sk='%s'", hexSK);
 											rc = sqlite3_prepare_v2(db, (const char*)sql, -1, &stmt, NULL);
 											if (SQLITE_OK == rc)
 											{
-												U8 result = 0;
 												rc = sqlite3_bind_blob(stmt, 1, blob, WT_BLOB_LEN, SQLITE_TRANSIENT);
-												if (SQLITE_OK != rc) result++;
-												rc = sqlite3_bind_blob(stmt, 2, g_myInfo->icon, WT_SMALL_ICON_SIZE, SQLITE_TRANSIENT);
-												if (SQLITE_OK != rc) result++;
-												if (result == 0)
+												if (SQLITE_OK == rc)
 												{
 													rc = sqlite3_step(stmt);
 												}
@@ -681,12 +689,14 @@ public:
 				}
 				else _close(fd);
 			}
+#endif
 		}
 		return r;
 	}
 
-	U32 RefreshMyInfo()
+	int RefreshMyInfomation()
 	{
+		int r = 0;
 		U8 mode = WIN1_MODE_ME;
 		U8 id;
 		XLabel* lb;
@@ -703,10 +713,13 @@ public:
 		lb = (XLabel*)m_ctlArray[mode][id];
 		lb->setText((U16*)g_myInfo->area, g_myInfo->area_length);
 
-		m_status |= DUI_STATUS_NEEDRAW;  // need to redraw this virtual window
-		InvalidateDUIWindow();           // set the gloabl redraw flag so next paint routine will do the paint work
-
-		return WT_OK;
+		if (m_mode == WIN1_MODE_ME)
+		{
+			r++;
+			UpdateControlPosition();
+			InvalidateScreen();
+		}
+		return r;
 	}
 };
 

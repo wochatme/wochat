@@ -889,11 +889,11 @@ U32 OpenAccount(U32 idx, U16* pwd, U32 len)
 								U32 status, utf16len;
 								U32* imgL = GetUIBitmap(WT_UI_BMP_MYLARGEICON);
 								assert(imgL);
-								U8* utf8Name = blob + 4 + PUBLIC_KEY_SIZE + 4;
-								U8* utf8Area = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN;
+								U8* utf8Name  = blob + 4 + PUBLIC_KEY_SIZE + 4;
+								U8* utf8Area  = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN;
 								U8* utf8Motto = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN;
-								U8* icon = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN;
-								U8* iconLarge = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN + WT_SMALL_ICON_SIZE;
+								U8* icon32    = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN;
+								U8* icon128   = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN + WT_SMALL_ICON_SIZE;
 
 								wt_sha256_hash(sk, SECRET_KEY_SIZE, hash);
 								wt_Raw2HexString(hash, 11, g_MQTTPubClientId, nullptr);
@@ -950,18 +950,17 @@ U32 OpenAccount(U32 idx, U16* pwd, U32 len)
 									wt_UTF8ToUTF16(utf8Motto, length, (U16*)g_myInfo->motto, nullptr);
 									g_myInfo->motto_length = utf16len;
 								}
-								memcpy(g_myInfo->icon, icon, WT_SMALL_ICON_SIZE);
+								memcpy(g_myInfo->icon32, icon32, WT_SMALL_ICON_SIZE);
 
-								g_myInfo->iconLargeW = g_myInfo->iconLargeH = 128;
-								if (memcmp(imgL, iconLarge, WT_SMALL_ICON_SIZE) == 0)
+								if (memcmp(imgL, icon128, WT_SMALL_ICON_SIZE) == 0)
 								{
-									g_myInfo->iconLarge = imgL; // the default large icon
+									g_myInfo->icon128 = imgL; // the default large icon
 								}
 								else
 								{
 									g_myInfo->property |= WT_MYINFO_LARGEICON_ALLOC; // indicate that iconLarge is freeable
-									g_myInfo->iconLarge = (U32*)wt_palloc(g_topMemPool, WT_LARGE_ICON_SIZE);
-									memcpy(g_myInfo->iconLarge, iconLarge, WT_LARGE_ICON_SIZE);
+									g_myInfo->icon128 = (U32*)wt_palloc(g_topMemPool, WT_LARGE_ICON_SIZE);
+									memcpy(g_myInfo->icon128, icon128, WT_LARGE_ICON_SIZE);
 								}
 							}
 						}

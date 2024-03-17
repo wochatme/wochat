@@ -303,7 +303,7 @@ public:
 					dy = pos - m_ptOffset.y;
 					if (WT_MESSAGE_FROM_ME & p->state)
 					{
-						icon = g_myInfo->icon;
+						icon = g_myInfo->icon32;
 						dx = w - m_scrollWidth - WT_SMALL_ICON_WIDTH - XWIN4_OFFSET;
 					}
 					else

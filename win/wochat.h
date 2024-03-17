@@ -117,7 +117,7 @@ U8* GetRobotPublicKey();
 
 void PopluateFriendInfo(WTFriend* p, U8* blob, U32 blen);
 
-void CopyMyPulicKey();
+void CopyPublicKey(U8* pubkey);
 
 U32 QueryFriendInformation(U8* pubkey);
 
@@ -151,5 +151,6 @@ DWORD WINAPI MQTTSubThread(LPVOID lpData);
 DWORD WINAPI MQTTPubThread(LPVOID lpData);
 
 wchar_t* GetMyPublicKeyString();
+U32 SaveMyInformation();
 
 #endif // __WT_WOCHAT_H__

@@ -876,18 +876,6 @@ public:
                 r += xctl->DoMouseLBClickDown(dx, dy, &idxActive);
         }
 
-        if (idxActive >= 0)
-        {
-            U16 realId = ((U16)idxActive) & 0xFF;
-
-            assert(realId < m_maxCtl[m_mode]);
-            xctl = m_ctlArray[m_mode][realId];
-            assert(xctl);
-            assert(xctl->pfAction);
-            xctl->pfAction(this, m_message, 0, (LPARAM)idxActive);
-            ClearDUIWindowLBtnDown();
-        }
-
         if (DUI_PROP_MOVEWIN & m_property)
         {
             if(bInMyArea && (-1 == idxActive))  // if the mouse does not hit the button, we can move the whole real window
@@ -981,6 +969,8 @@ public:
         int yPos = GET_Y_LPARAM(lParam);
         XControl* xctl;
 
+        ClearDUIWindowLBtnDown();
+
         ClearDUIWindowDragMode();
         m_DragMode = XDragMode::DragNone;
         m_ptOffsetOld.x = -1, m_ptOffsetOld.y = -1;
@@ -999,6 +989,16 @@ public:
             assert(xctl->m_Id == ((m_mode << 8) | i));
             if (xctl->IsVisible())
                 r += xctl->DoMouseLBClickUp(dx, dy, &idxActive);
+        }
+
+        if (idxActive >= 0)
+        {
+            U16 realId = ((U16)idxActive) & 0xFF;
+            assert(realId < m_maxCtl[m_mode]);
+            xctl = m_ctlArray[m_mode][realId];
+            assert(xctl);
+            assert(xctl->pfAction);
+            xctl->pfAction(this, m_message, 0, (LPARAM)idxActive);
         }
 
         // this window has active button, just like radio button group

@@ -176,6 +176,12 @@ public:
 		MESSAGE_HANDLER(WM_SETCURSOR, OnSetCursor)
 		MESSAGE_HANDLER(WM_LOADPERCENTMESSAGE, OnLoading)
 		MESSAGE_HANDLER(WM_ALLOTHER_MESSAGE, OnOtherMessage)
+		MESSAGE_HANDLER(WM_XWINDOWS00, OnWin0Message)
+		MESSAGE_HANDLER(WM_XWINDOWS01, OnWin1Message)
+		MESSAGE_HANDLER(WM_XWINDOWS02, OnWin2Message)
+		MESSAGE_HANDLER(WM_XWINDOWS03, OnWin3Message)
+		MESSAGE_HANDLER(WM_XWINDOWS04, OnWin4Message)
+		MESSAGE_HANDLER(WM_XWINDOWS05, OnWin5Message)
 		MESSAGE_HANDLER(WM_GETMINMAXINFO, OnGetMinMaxInfo)
 		MESSAGE_HANDLER(WM_CREATE, OnCreate)
 		MESSAGE_HANDLER(WM_DESTROY, OnDestroy)
@@ -711,6 +717,174 @@ public:
 		return 0;
 	}
 
+	LRESULT OnWin0Message(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
+	{
+		bool bChanged = true;
+
+		if (m_loadingPercent <= 100) // the loading phase is not completed yet
+			return 0;
+
+		if (wParam == 0)
+		{
+			U16 ctlId = (U16)lParam;
+			U16 mode = m_win0.GetMode();
+
+			ctlId &= 0xFF;
+			switch (ctlId)
+			{
+			case XWIN0_BUTTON_ME:
+				m_mode = AppMode::ModeMe;
+				DoMeModeLayOut();
+				break;
+			case XWIN0_BUTTON_TALK:
+				DoTalkModeLayOut();
+				break;
+			case XWIN0_BUTTON_FRIEND:
+				DoFriendModeLayOut();
+				break;
+			case XWIN0_BUTTON_SETTING:
+				m_mode = AppMode::ModeSetting;
+				DoSettingModeLayOut();
+				break;
+			case XWIN0_BUTTON_QUAN:
+			case XWIN0_BUTTON_COIN:
+			case XWIN0_BUTTON_FAVORITE:
+			case XWIN0_BUTTON_FILE:
+				m_mode = AppMode::ModeCoin;
+				DoTBDModeLayOut();
+				break;
+			default:
+				bChanged = false;
+				break;
+			}
+		}
+
+		if (bChanged)
+			Invalidate();
+
+		return 0;
+	}
+
+	LRESULT OnWin1Message(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
+	{
+		if (m_loadingPercent > 100) // the loading phase is completed
+		{
+			if (wParam == 0)
+			{
+				U16 ctlId = (U16)lParam;
+				U16 mode = ctlId >> 8;
+				ctlId &= 0xFF;
+
+				U16 m1 = m_win1.GetMode();
+				ATLASSERT(m1 == mode);
+
+				switch (mode)
+				{
+				case WIN1_MODE_TALK:
+#if 0
+					if (ctlId == XWIN1_TALK_BUTTON_SEARCH)
+					{
+						if (g_dwMainThreadID)
+							::PostThreadMessage(g_dwMainThreadID, WM_WIN_SEARCHALLTHREAD, 0, 0L);
+
+					}
+#endif 
+					break;
+				case WIN1_MODE_ME:
+					switch (ctlId)
+					{
+					case XWIN1_ME_BUTTON_MYICON:
+						{
+							int r = m_win1.SelectIconFile();
+							if (r)
+							{
+								m_win0.UpdateMyIcon();
+								Invalidate();
+							}
+						}
+						break;
+					case XWIN1_ME_BUTTON_PUBLICKEY:
+						assert(g_myInfo);
+						CopyPublicKey(g_myInfo->pubkey);
+						break;
+					case XWIN1_ME_BUTTON_EDIT:
+						{
+							CEditMyInfoDlg dlg;
+							if (IDOK == dlg.DoModal())
+							{
+								U32 status;
+								int r = m_win1.RefreshMyInfomation();
+								status = SaveMyInformation();
+								ATLASSERT(status == WT_OK);
+								if (r) 
+									Invalidate();
+							}
+						}
+						break;
+					default:
+						break;
+					}
+					break;
+				case WIN1_MODE_FRIEND:
+					if (ctlId == XWIN1_FRIEND_BUTTON_SEARCH)
+					{
+						//DialogBox(g_hInstance, MAKEINTRESOURCE(IDD_SEARCHADD), m_hWnd, AddFriendDialogProc);
+					}
+					break;
+				case WIN1_MODE_TBD:
+					break;
+				default:
+					ATLASSERT(0);
+					break;
+				}
+			}
+		}
+		return 0;
+	}
+
+	LRESULT OnWin2Message(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
+	{
+		return 0;
+	}
+
+	LRESULT OnWin3Message(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
+	{
+		U16 mode = m_win3.GetMode();
+		U8 id;
+		WTFriend* p;
+		switch (mode)
+		{
+		case WIN3_MODE_FRIEND:
+			id = (U8)lParam;
+			p = m_win3.GetFriend();
+			if (id == XWIN3_FRIEND_BUTTON_CHAT)
+			{
+				if (p)
+				{
+					WTChatGroup* cg = p->chatgroup;
+				}
+			}
+			else if (id == XWIN3_FRIEND_BUTTON_PUBKEY)
+			{
+				if (p)	CopyPublicKey(p->pubkey);
+			}
+			break;
+		default:
+			break;
+		}
+		return 0;
+	}
+
+	LRESULT OnWin4Message(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
+	{
+		return 0;
+	}
+
+	LRESULT OnWin5Message(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
+	{
+		return 0;
+	}
+
 	LRESULT OnLoading(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
 	{
 		static bool mqtt_started = false;
@@ -896,7 +1070,7 @@ public:
 
 	U32	DoTalkModeLayOut()
 	{
-		ATLASSERT(AppMode::ModeTalk == m_mode);
+		m_mode = AppMode::ModeTalk;
 
 		m_splitterHPosfix0 = XWIN1_HEIGHT;
 		m_splitterHPosfix1 = XWIN3_HEIGHT;
@@ -916,7 +1090,7 @@ public:
 
 	U32	DoFriendModeLayOut()
 	{
-		ATLASSERT(AppMode::ModeFriend == m_mode);
+		m_mode = AppMode::ModeFriend;
 
 		m_splitterHPosfix0 = XWIN1_HEIGHT;
 		m_splitterHPosfix1 = 0;
@@ -927,6 +1101,9 @@ public:
 		m_win1.SetMode(WIN1_MODE_FRIEND);
 		m_win2.SetMode(WIN2_MODE_FRIEND);
 		m_win3.SetMode(WIN3_MODE_FRIEND);
+		WTFriend* people = m_win2.GetCurrentFriend();
+		if (people)
+			m_win3.UpdateFriendInformation(people);
 
 		AdjustDUIWindowPosition();
 
@@ -1307,16 +1484,24 @@ public:
 	LRESULT OnEditMyInfo(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 	{
 		CEditMyInfoDlg dlg;
-		dlg.DoModal();
-
+		if (IDOK == dlg.DoModal())
+		{
+			U32 status;
+			m_win1.RefreshMyInfomation();
+			status = SaveMyInformation();
+			ATLASSERT(status == WT_OK);
+			Invalidate();
+		}
 		return 0;
 	}
 
 	LRESULT OnAddFriend(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 	{
 		CAddFriendDlg dlg;
-		dlg.DoModal();
+		if (IDOK == dlg.DoModal())
+		{
 
+		}
 		return 0;
 }
 

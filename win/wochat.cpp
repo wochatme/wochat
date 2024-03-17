@@ -185,6 +185,18 @@ U32 GenPublicKeyFromSecretKey(U8* sk, U8* pk)
 	return ret;
 }
 
+static void InitPeople(WTFriend* people)
+{
+	assert(people);
+	people->next = people->prev = nullptr;
+	people->chatgroup = nullptr;
+	people->name_length = 0;
+	people->motto_length = 0;
+	people->area_length = 0;
+	people->from_length = 0;
+	people->icon128 = 0;
+}
+
 static U32 LoadFriendList()
 {
 	assert(g_friendRoot == nullptr);
@@ -226,9 +238,10 @@ static U32 LoadFriendList()
 
 				if (ub_len == WT_BLOB_LEN)
 				{
-					p = (WTFriend*)wt_palloc0(g_messageMemPool, sizeof(WTFriend));
+					p = (WTFriend*)wt_palloc(g_messageMemPool, sizeof(WTFriend));
 					if (p)
 					{
+						InitPeople(p);
 						PopluateFriendInfo(p, ub, ub_len);
 						// insert into the hash tab
 						found = false;
@@ -1538,22 +1551,21 @@ U32 GetAccountNumber(int* total)
 			p = blobuf + 4 + PUBLIC_KEY_SIZE + 4; /* now point to the name field */
 			for (i = 0; i < 9; i++) p[i] = txtUtf8Name[i];
 
-			p = blobuf + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN; /* now point to the motto field */
-			for (i = 0; i < 18; i++) p[i] = txtUf8Motto[i];
-
-			p = blobuf + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_MOTTO_MAX_LEN; /* now point to the area field */
+			p = blobuf + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN; /* now point to the area field */
 			for (i = 0; i < 12; i++) p[i] = txtUtf8Area[i];
 
+			p = blobuf + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN; /* now point to the motto field */
+			for (i = 0; i < 18; i++) p[i] = txtUf8Motto[i];
+
 			/* now point to the small icon field */
-			p = blobuf + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_MOTTO_MAX_LEN + WT_AREA_MAX_LEN; 
+			p = blobuf + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN;
 			imgRobotSmall = (U8*)GetUIBitmap(WT_UI_BMP_AIMSALLICON, &wS, &hS);
 			assert(imgRobotSmall);
 			assert(wS * hS * 4 == WT_SMALL_ICON_SIZE);
-
 			for (i = 0; i < WT_SMALL_ICON_SIZE; i++) p[i] = imgRobotSmall[i];
 
 			/* now point to the large icon field */
-			p = blobuf + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_MOTTO_MAX_LEN + WT_AREA_MAX_LEN + WT_SMALL_ICON_SIZE; 
+			p = blobuf + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN + WT_SMALL_ICON_SIZE;
 			imgRobotLarge = (U8*)GetUIBitmap(WT_UI_BMP_AILARGEICON, &wL, &hL);
 			assert(imgRobotLarge);
 			assert(wL * hL * 4 == WT_LARGE_ICON_SIZE);
@@ -1650,11 +1662,12 @@ MessageTask* CreateMyInfoMessage()
 			//p[3] = g_myInfo->sex;
 			//p32 = (U32*)(p + 4);
 			//*p32 = g_myInfo->dob;
-			U8* name  = mt->message + 4 + PUBLIC_KEY_SIZE + 4;
-			U8* area  = mt->message + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN;
-			U8* motto = mt->message + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN;
-			U8* iconS = mt->message + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN;
-			U8* iconL = mt->message + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN + WT_SMALL_ICON_SIZE;
+			p = mt->message + 4 + PUBLIC_KEY_SIZE + 4;
+			U8* name    = p;
+			U8* area    = p + WT_NAME_MAX_LEN;
+			U8* motto   = p + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN;
+			U8* icon32  = p + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN;
+			U8* icon128 = p + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN + WT_SMALL_ICON_SIZE;
 
 			if (wt_UTF16ToUTF8((U16*)g_myInfo->name, g_myInfo->name_length, nullptr, &utf8len) == WT_OK)
 			{
@@ -1671,8 +1684,8 @@ MessageTask* CreateMyInfoMessage()
 				assert(utf8len < WT_NAME_MAX_LEN);
 				wt_UTF16ToUTF8((U16*)g_myInfo->area, g_myInfo->area_length, area, nullptr);
 			}
-			memcpy(iconS, g_myInfo->icon, WT_SMALL_ICON_SIZE);
-			memcpy(iconL, g_myInfo->iconLarge, WT_LARGE_ICON_SIZE);
+			memcpy(icon32,  g_myInfo->icon32,  WT_SMALL_ICON_SIZE);
+			memcpy(icon128, g_myInfo->icon128, WT_LARGE_ICON_SIZE);
 		}
 		else
 		{
@@ -1719,8 +1732,8 @@ void PopluateFriendInfo(WTFriend* p, U8* blob, U32 blen)
 	U8* utf8Name  = blob + 4 + PUBLIC_KEY_SIZE + 4;
 	U8* utf8Area  = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN;
 	U8* utf8Motto = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN;
-	U8* iconS     = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN;
-	U8* iconL     = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN + WT_SMALL_ICON_SIZE;
+	U8* icon32    = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN;
+	U8* icon128   = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN + WT_SMALL_ICON_SIZE;
 
 	utf16len = length = 0; s = utf8Name;
 	while (*s++)
@@ -1733,7 +1746,7 @@ void PopluateFriendInfo(WTFriend* p, U8* blob, U32 blen)
 	if (WT_OK == status && utf16len < (WT_NAME_MAX_LEN >> 1))
 	{
 		wt_UTF8ToUTF16(utf8Name, length, (U16*)p->name, nullptr);
-		p->name_legnth = utf16len;
+		p->name_length = utf16len;
 	}
 	utf16len = length = 0; s = utf8Area;
 	while (*s++)
@@ -1746,7 +1759,7 @@ void PopluateFriendInfo(WTFriend* p, U8* blob, U32 blen)
 	if (WT_OK == status && utf16len < (WT_AREA_MAX_LEN >> 1))
 	{
 		wt_UTF8ToUTF16(utf8Area, length, (U16*)p->area, nullptr);
-		p->area_legnth = utf16len;
+		p->area_length = utf16len;
 	}
 	utf16len = length = 0; s = utf8Motto;
 	while (*s++)
@@ -1759,10 +1772,10 @@ void PopluateFriendInfo(WTFriend* p, U8* blob, U32 blen)
 	if (WT_OK == status && utf16len < (WT_MOTTO_MAX_LEN >> 1))
 	{
 		wt_UTF8ToUTF16(utf8Motto, length, (U16*)p->motto, nullptr);
-		p->motto_legnth = utf16len;
+		p->motto_length = utf16len;
 	}
 
-	memcpy(p->icon, iconS, WT_SMALL_ICON_SIZE);
+	memcpy(p->icon, icon32, WT_SMALL_ICON_SIZE);
 
 	robotPK = GetRobotPublicKey();
 	if (memcmp(p->pubkey, robotPK, PUBLIC_KEY_SIZE) == 0)
@@ -1771,20 +1784,19 @@ void PopluateFriendInfo(WTFriend* p, U8* blob, U32 blen)
 		img = GetUIBitmap(WT_UI_BMP_MYLARGEICON);
 	assert(img);
 
-	p->wLarge = p->hLarge = 128;
-	if (memcmp(img, iconL, WT_LARGE_ICON_SIZE) == 0)
+	if (memcmp(img, icon128, WT_LARGE_ICON_SIZE) == 0)
 	{
-		p->iconLarge = img;
+		p->icon128 = img;
 	}
 	else
 	{
-		p->iconLarge = (U32*)wt_palloc(g_messageMemPool, WT_LARGE_ICON_SIZE);
-		if (p->iconLarge)
+		p->icon128 = (U32*)wt_palloc(g_messageMemPool, WT_LARGE_ICON_SIZE);
+		if (p->icon128)
 		{
 			p->property |= WT_FRIEND_PROP_LARGEICON_ALLOC;
-			memcpy(p->iconLarge, iconL, WT_LARGE_ICON_SIZE);
+			memcpy(p->icon128, icon128, WT_LARGE_ICON_SIZE);
 		}
-		else p->iconLarge = img;
+		else p->icon128 = img;
 	}
 }
 
@@ -1909,3 +1921,132 @@ U8* TryToAddNewFriend(U8 source, U8* pubkey)
 	return buf;
 }
 
+void CopyPublicKey(U8* pubkey)
+{
+	assert(pubkey);
+	if (OpenClipboard(nullptr))
+	{
+		if (EmptyClipboard())
+		{
+			SIZE_T bytes = 67 * sizeof(wchar_t);
+			HGLOBAL hClipboardData = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, bytes);
+			if (hClipboardData != NULL)
+			{
+				LPVOID memory = GlobalLock(hClipboardData);
+				if (memory != NULL)
+				{
+					wchar_t hexPK[67] = { 0 };
+					wt_Raw2HexStringW(pubkey, PUBLIC_KEY_SIZE, hexPK, nullptr);
+					memcpy(memory, hexPK, bytes);
+					GlobalUnlock(hClipboardData);
+					SetClipboardData(CF_UNICODETEXT, hClipboardData);
+				}
+				GlobalFree(hClipboardData);
+			}
+		}
+		CloseClipboard();
+	}
+}
+
+U32 SaveMyInformation()
+{
+	U32 ret = WT_FAIL;
+	U32 blen = WT_BLOB_LEN;
+	U8* blob = (U8*)wt_palloc(g_messageMemPool, WT_BLOB_LEN);
+	if (blob)
+	{
+		sqlite3* db;
+		int rc = sqlite3_open16(g_DBPath, &db);
+		if (SQLITE_OK == rc)
+		{
+			int i;
+			U32* imgMeLarge = nullptr;
+			U32* imgMeSmall = nullptr;
+			U32 crc32, status, utf8len = 0;
+			sqlite3_stmt* stmt = NULL;
+			U8 sql[SQL_STMT_MAX_LEN] = { 0 };
+			U8* p = blob + 4;
+			for (i = 0; i < PUBLIC_KEY_SIZE; i++) p[i] = g_myInfo->pubkey[i]; // save the public key
+
+			p = blob + 4 + PUBLIC_KEY_SIZE;
+			for (i = 0; i < (4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN); i++) p[i] = 0;
+
+			U8 hexSK[65];
+			wt_Raw2HexString(g_myInfo->skenc, SECRET_KEY_SIZE, hexSK, nullptr);
+
+			p = blob + 4 + PUBLIC_KEY_SIZE + 4;
+			U8* utf8Name  = p;
+			U8* utf8Area  = p + WT_NAME_MAX_LEN;
+			U8* utf8Motto = p + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN;
+			U8* icon32    = p + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN;
+			U8* icon128   = p + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN + WT_SMALL_ICON_SIZE;
+
+			status = wt_UTF16ToUTF8((U16*)g_myInfo->name, g_myInfo->name_length, nullptr, &utf8len);
+			if (status == WT_OK && utf8len < WT_NAME_MAX_LEN)
+			{
+				status = wt_UTF16ToUTF8((U16*)g_myInfo->name, g_myInfo->name_length, utf8Name, nullptr);
+				assert(status == WT_OK);
+			}
+			status = wt_UTF16ToUTF8((U16*)g_myInfo->area, g_myInfo->area_length, nullptr, &utf8len);
+			if (status == WT_OK && utf8len < WT_AREA_MAX_LEN)
+			{
+				status = wt_UTF16ToUTF8((U16*)g_myInfo->area, g_myInfo->area_length, utf8Area, nullptr);
+				assert(status == WT_OK);
+			}
+			status = wt_UTF16ToUTF8((U16*)g_myInfo->motto, g_myInfo->motto_length, nullptr, &utf8len);
+			if (status == WT_OK && utf8len < WT_MOTTO_MAX_LEN)
+			{
+				status = wt_UTF16ToUTF8((U16*)g_myInfo->motto, g_myInfo->motto_length, utf8Motto, nullptr);
+				assert(status == WT_OK);
+			}
+
+			p = (U8*)g_myInfo->icon32;
+			for (i = 0; i < WT_SMALL_ICON_SIZE; i++) icon32[i] = p[i];
+			p = (U8*)g_myInfo->icon128;
+			for (i = 0; i < WT_LARGE_ICON_SIZE; i++) icon128[i] = p[i];
+
+			crc32 = wt_GenCRC32(blob + 4 + PUBLIC_KEY_SIZE, blen - 4 - PUBLIC_KEY_SIZE);
+			*((U32*)blob) = crc32; // save the CRC32 value
+			g_myInfo->version = crc32;
+
+			sprintf_s((char*)sql, SQL_STMT_MAX_LEN, "UPDATE k SET dt=(?),ub=(?) WHERE sk='%s'", hexSK);
+			rc = sqlite3_prepare_v2(db, (const char*)sql, -1, &stmt, NULL);
+			if (SQLITE_OK == rc)
+			{
+				U8 result = 0;
+				S64 dt = GetCurrentUTCTime64();
+				rc = sqlite3_bind_int64(stmt, 1, dt);
+				if (SQLITE_OK != rc) result++;
+				rc = sqlite3_bind_blob(stmt, 2, blob, blen, SQLITE_TRANSIENT);
+				if (SQLITE_OK != rc) result++;
+				if (result == 0)
+				{
+					rc = sqlite3_step(stmt);
+					if (SQLITE_DONE == rc)
+						ret = WT_OK;
+				}
+				sqlite3_finalize(stmt);
+			}
+			sqlite3_close(db);
+		}
+
+		if (WT_OK == ret) // my information has been saved to the database successfully. Now tell the server
+		{
+			MessageTask* mt = (MessageTask*)wt_palloc0(g_messageMemPool, sizeof(MessageTask));
+			if (mt)
+			{
+				U8* pkRobot = GetRobotPublicKey();
+				assert(pkRobot);
+				mt->msgLen = WT_BLOB_LEN;
+				mt->message = blob;
+				mt->type = 'U';
+				mt->state = MESSAGE_TASK_STATE_ONE;
+				for (U8 i = 0; i < PUBLIC_KEY_SIZE; i++) mt->pubkey[i] = pkRobot[i];
+				PushTaskIntoSendMessageQueue(mt);
+			}
+			else wt_pfree(blob);
+		}
+		else wt_pfree(blob);
+	}
+	return ret;
+}

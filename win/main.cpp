@@ -406,7 +406,7 @@ static int InitDirectWriteTextFormat(HINSTANCE hInstance)
 	else iRet = (int)(20 + idx);
 	if (iRet) return iRet;
 
-	idx = WT_TEXTFORMAT_GROUPNAME; fontSize = 15.f; fontFamilyName = L"Microsoft Yahei UI"; testString = strChinese;
+	idx = WT_TEXTFORMAT_GROUPNAME; fontSize = 17.f; fontFamilyName = L"Microsoft Yahei UI"; testString = strChinese;
 	hr = g_pDWriteFactory->CreateTextFormat(fontFamilyName, NULL, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize, ln, &(ng_pTextFormat[idx]));
 	if (S_OK == hr && nullptr != ng_pTextFormat[idx])
 	{
@@ -601,14 +601,14 @@ static U32 MemoryContextInit()
 	g_topMemPool = wt_mempool_create("TopMemoryContext", 0, DUI_ALLOCSET_DEFAULT_INITSIZE, DUI_ALLOCSET_DEFAULT_MAXSIZE);
 	if (g_topMemPool)
 	{
-		g_myInfo = (WTMyInfo*)wt_palloc0(g_topMemPool, sizeof(WTMyInfo));
 		g_MQTTPubClientId = (U8*)wt_palloc0(g_topMemPool, MQTT_CLIENTID_SIZE);
 		g_MQTTSubClientId = (U8*)wt_palloc0(g_topMemPool, MQTT_CLIENTID_SIZE);
-
+		g_myInfo = (WTMyInfo*)wt_palloc0(g_topMemPool, sizeof(WTMyInfo));
 		if (g_myInfo && g_MQTTPubClientId && g_MQTTSubClientId)
 		{
+			g_myInfo->icon32 = (U32*)wt_palloc0(g_topMemPool, WT_SMALL_ICON_HEIGHT);
 			g_messageMemPool = wt_mempool_create("MessagePool", 0, DUI_ALLOCSET_DEFAULT_INITSIZE, DUI_ALLOCSET_DEFAULT_MAXSIZE);
-			if (g_messageMemPool)
+			if (g_messageMemPool && g_myInfo->icon32)
 			{
 				HASHCTL hctl = { 0 };
 				hctl.keysize = PUBLIC_KEY_SIZE;

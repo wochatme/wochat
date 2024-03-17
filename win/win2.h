@@ -167,6 +167,7 @@ public:
 
 	U32 ProcessTextMessage(U8* pubkey, U16* text, U32 text_length)
 	{
+#if 0
 		WTFriend* people = nullptr;
 		bool found = false;
 		int txtH = 0, txtW = 0;
@@ -188,13 +189,11 @@ public:
 				people = p;
 				p16 = (U16*)p->name;
 				for (i = 0; i < 4; i++) p16[i] = txtNameUnknown[i];
-				p->name_legnth = 4;
+				p->name_length = 4;
 
 				for (i = 0; i < PUBLIC_KEY_SIZE; i++) p->pubkey[i] = pubkey[i];
-				p->hLarge = p->wLarge = 128;
-				p->iconLarge = GetUIBitmap(WT_UI_BMP_MYLARGEICON);
-				wt_Resize128To32Bmp(p->iconLarge, p->icon);
-
+				p->icon128 = GetUIBitmap(WT_UI_BMP_MYLARGEICON);
+				//wt_Resize128To32Bmp(p->iconLarge, p->icon);
 				QueryFriendInformation(pubkey);
 			}
 		}
@@ -260,91 +259,10 @@ public:
 				NotifyParent(m_message, WIN2_MODE_TALK, (LPARAM)cg);
 			}
 		}
-		return WT_OK;
-	}
-
-#if 0
-	U32 LoadFriends()
-	{
-		int rc;
-		sqlite3* db;
-		sqlite3_stmt* stmt = NULL;
-
-		assert(nullptr == m_friendRoot);
-		assert(nullptr != m_pool);
-
-		m_friendSelected = nullptr;
-		m_friendTotal = 0;
-
-		rc = sqlite3_open16(g_DBPath, &db);
-		if (SQLITE_OK == rc)
-		{
-			char sql[256] = { 0 };
-			U8 hexPK0[67] = { 0 };
-			wt_Raw2HexString(g_pMyInformation->pubkey, PUBLIC_KEY_SIZE, hexPK0, nullptr);
-
-			sprintf_s((char*)sql, 256, "SELECT pk,dt,sr,ub,si FROM p WHERE at<>0 AND (id=1 OR me='%s') ORDER BY id", hexPK0);
-			rc = sqlite3_prepare_v2(db, (const char*)sql, -1, &stmt, NULL);
-			if (SQLITE_OK == rc)
-			{
-				U8* hexPK;
-				S64 dt;
-				U8* sr;
-				U8* ub;
-				U8* si;
-				U32 ub_len, si_len;
-				WTFriend* p;
-				WTFriend* q;
-				bool found = false;
-				WTGuy* guy;
-
-				while (SQLITE_ROW == sqlite3_step(stmt))
-				{
-					hexPK  = (U8*)sqlite3_column_text(stmt, 0);
-					dt     = (U32)sqlite3_column_int64(stmt, 1);
-					sr     = (U8*)sqlite3_column_text(stmt, 2);
-					ub     = (U8*)sqlite3_column_blob(stmt, 3);
-					ub_len = (U32)sqlite3_column_bytes(stmt, 3);
-					si     = (U8*)sqlite3_column_blob(stmt, 4);
-					si_len = (U32)sqlite3_column_bytes(stmt, 4);
-
-					if (ub_len != WT_BLOB_LEN || si_len != WT_SMALL_ICON_SIZE)
-						continue; // this is not a valid record
-
-					if (!m_friendRoot)
-					{
-						m_friendRoot = (WTFriend*)wt_palloc0(m_pool, sizeof(WTFriend));
-						assert(m_friendRoot);
-						m_friendSelected = m_friendRoot;
-						p = m_friendRoot;
-					}
-					else
-					{
-						q = (WTFriend*)wt_palloc0(m_pool, sizeof(WTFriend));
-						assert(q);
-						assert(p);
-						p->next = q;
-						q->prev = p;
-						p = q;
-					}
-					m_friendTotal++;
-					PopluateFriendInfo(p, ub, ub_len, si, si_len);
-
-					found = false;
-					guy = (WTGuy*)hash_search(m_peopleHTAB, p->pubkey, HASH_ENTER, &found);
-					assert(guy);
-					if (!found)
-					{
-						guy->people = p;
-					}
-				}
-				sqlite3_finalize(stmt);
-			}
-			sqlite3_close(db);
-		}
-		return WT_OK;
-	}
 #endif
+		return WT_OK;
+	}
+
 	U32 InitSettings()
 	{
 		U16 h = 20;
@@ -438,10 +356,16 @@ public:
 		assert(people);
 		assert(chatgroup);
 		m_friendRoot = people;
+		m_friendSelected = people;
 		m_chatgroupRoot = chatgroup;
 		m_chatgroupSelected = chatgroup;
 		m_friendTotal = peopelTotal;
 		m_chatgroupTotal = chatgroupTotal;
+	}
+
+	WTFriend* GetCurrentFriend()
+	{
+		return m_friendSelected;
 	}
 
 	int Do_DUI_CREATE(U32 uMsg, U64 wParam, U64 lParam, void* lpData = nullptr)
@@ -496,7 +420,7 @@ public:
 
 				dx = ITEM_MARGIN + ICON_HEIGHT + ITEM_MARGIN;
 				dy = pos - m_ptOffset.y + 12;
-				hr = g_pDWriteFactory->CreateTextLayout((wchar_t*)people->name, people->name_legnth, pTextFormat0, static_cast<FLOAT>(w), static_cast<FLOAT>(1), &pTextLayout0);
+				hr = g_pDWriteFactory->CreateTextLayout((wchar_t*)people->name, people->name_length, pTextFormat0, static_cast<FLOAT>(w), static_cast<FLOAT>(1), &pTextLayout0);
 				if (S_OK == hr)
 				{
 					orgin.x = static_cast<FLOAT>(dx + m_area.left);
@@ -598,7 +522,7 @@ public:
 			{
 				dx = ITEM_MARGINF + ICON_HEIGHTF + ITEM_MARGINF;
 				dy = pos - m_ptOffset.y + 12;
-				hr = g_pDWriteFactory->CreateTextLayout((wchar_t*)p->name, p->name_legnth, pTextFormat0, static_cast<FLOAT>(w), static_cast<FLOAT>(1), &pTextLayout);
+				hr = g_pDWriteFactory->CreateTextLayout((wchar_t*)p->name, p->name_length, pTextFormat0, static_cast<FLOAT>(w), static_cast<FLOAT>(1), &pTextLayout);
 				if (S_OK == hr)
 				{
 					orgin.x = static_cast<FLOAT>(dx + m_area.left);

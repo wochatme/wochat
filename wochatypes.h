@@ -128,10 +128,8 @@ typedef struct WTMyInfo
 	U8   name[WT_NAME_MAX_LEN];
 	U8   motto[WT_MOTTO_MAX_LEN];
 	U8   area[WT_AREA_MAX_LEN];
-	U8   iconLargeW;
-	U8   iconLargeH;
-	U32* iconLarge;
-	U32  icon[WT_SMALL_ICON_WIDTH * WT_SMALL_ICON_HEIGHT];
+	U32* icon128;
+	U32* icon32;
 	U8   skenc[SECRET_KEY_SIZE]; /* the encrypted secret key! */
 	U8   seckey[SECRET_KEY_SIZE];
 	U8   pubkey[PUBLIC_KEY_SIZE];
@@ -189,17 +187,15 @@ struct WTFriend
 	U8   sex;
 	U16  member;	// if this friend is group, how many members in this group?
 	U8   name[WT_NAME_MAX_LEN];		// the name of this friend
-	U8   name_legnth;
+	U8   name_length;
 	U8   motto[WT_MOTTO_MAX_LEN];	// the motto of this friend
-	U8   motto_legnth;
+	U8   motto_length;
 	U8   area[WT_AREA_MAX_LEN];		// the area of this friend
-	U8   area_legnth;
+	U8   area_length;
 	U8   from[WT_FROM_MAX_LEN];		// which method do I get this friend
-	U8   from_legnth;
+	U8   from_length;
 	U32  icon[WT_SMALL_ICON_WIDTH * WT_SMALL_ICON_HEIGHT];
-	U32* iconLarge;
-	U8   wLarge;	 // the width in pixel of this icon
-	U8   hLarge;	 // the height in pixel of this icon
+	U32* icon128;
 };
 
 typedef struct WTGuy

@@ -130,6 +130,7 @@ public:
 
 	BEGIN_MSG_MAP(CEditMyInfoDlg)
 		MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
+		COMMAND_ID_HANDLER(IDOK, OnOK)
 		COMMAND_ID_HANDLER(IDCANCEL, OnCloseCmd)
 	END_MSG_MAP()
 
@@ -236,6 +237,48 @@ public:
 
 		CenterWindow(GetParent());
 		return TRUE;
+	}
+
+	LRESULT OnOK(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
+	{
+		int characterNum, i;
+		wchar_t* p;
+		wchar_t editName[WT_CHAR_NAME_MAX_LEN + 1] = { 0 };
+		wchar_t editMotto[WT_CHAR_MOTTO_MAX_LEN + 1] = { 0 };
+		wchar_t editArea[WT_CHAR_AREA_MAX_LEN + 1] = { 0 };
+
+		HWND hWndCtl = GetDlgItem(IDC_EDIT_NAME);
+		if (hWndCtl)
+		{
+			characterNum = ::GetWindowTextW(hWndCtl, editName, WT_CHAR_NAME_MAX_LEN);
+			for (i = 0; i < WT_NAME_MAX_LEN; i++) g_myInfo->name[i] = 0;
+			g_myInfo->name_length = (U8)characterNum;
+			p = (wchar_t*)g_myInfo->name;
+			for(i=0; i< g_myInfo->name_length; i++) p[i] = editName[i];
+		}
+
+		hWndCtl = GetDlgItem(IDC_EDIT_MOTTO);
+		if (hWndCtl)
+		{
+			characterNum = ::GetWindowTextW(hWndCtl, editMotto, WT_CHAR_MOTTO_MAX_LEN);
+			for (i = 0; i < WT_MOTTO_MAX_LEN; i++) g_myInfo->motto[i] = 0;
+			g_myInfo->motto_length = (U8)characterNum;
+			p = (wchar_t*)g_myInfo->motto;
+			for (i = 0; i < g_myInfo->motto_length; i++) p[i] = editMotto[i];
+		}
+
+		hWndCtl = GetDlgItem(IDC_EDIT_AREA);
+		if (hWndCtl)
+		{
+			characterNum = ::GetWindowTextW(hWndCtl, editArea, WT_CHAR_AREA_MAX_LEN);
+			for (i = 0; i < WT_AREA_MAX_LEN; i++) g_myInfo->area[i] = 0;
+			g_myInfo->area_length = (U8)characterNum;
+			p = (wchar_t*)g_myInfo->area;
+			for (i = 0; i < g_myInfo->area_length; i++) p[i] = editArea[i];
+		}
+
+		EndDialog(wID);
+		return 0;
 	}
 
 	LRESULT OnCloseCmd(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/)

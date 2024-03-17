@@ -58,7 +58,8 @@ private:
 		bmp = &(m_bmpArray[0][id]); bmp->id = id; 
 		//bmp->data = GetUIBitmap(WT_UI_BMP_MYMSALLICON);  
 		assert(g_myInfo);
-		bmp->data = g_myInfo->icon;
+		assert(g_myInfo->icon32);
+		bmp->data = g_myInfo->icon32;
 		bmp->w = w; bmp->h = h;
 
 		id = XWIN0_BITMAP_TALKN;     bmp = &(m_bmpArray[0][id]); bmp->id = id; bmp->data = (U32*)xbmpTalkN;     bmp->w = w; bmp->h = h;
@@ -389,12 +390,7 @@ public:
 
 	int UpdateMyIcon()
 	{
-#if 0
-		XBitmap* bmpN = &(m_bmpArray[0][XWIN0_BITMAP_ME]);
-		bmpN->data = g_myInfo->iconSmall;
-#endif 
-		m_status |= DUI_STATUS_NEEDRAW;  // need to redraw this virtual window
-		InvalidateDUIWindow();           // set the gloabl redraw flag so next paint routine will do the paint work
+		InvalidateScreen();
 		return 0;
 	}
 };
