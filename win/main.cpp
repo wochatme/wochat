@@ -41,10 +41,6 @@ IDWriteFactory*     g_pDWriteFactory = nullptr;
 /* the cursor */
 HCURSOR				g_hCursorWE = nullptr;
 HCURSOR				g_hCursorNS = nullptr;
-#if 0
-HCURSOR				g_hCursorHand = nullptr;
-HCURSOR				g_hCursorIBeam = nullptr;
-#endif 
 wchar_t				g_AppPath[MAX_PATH + 1] = { 0 };
 wchar_t				g_DBPath[MAX_PATH + 1] = { 0 };
 
@@ -82,11 +78,10 @@ IDWriteTextFormat* GetTextFormatAndHeight(U8 idx, U16* height)
 
 	if (idx < WT_TEXTFORMAT_TOTAL)
 	{
-		if (height)
-			*height = ng_fontHeight[idx];
-
-		ATLASSERT(ng_pTextFormat[idx]);
+		if (height)	*height = ng_fontHeight[idx];
 		pTxtFormat = ng_pTextFormat[idx];
+		ATLASSERT(pTxtFormat);
+
 	}
 	return pTxtFormat;
 }
@@ -121,7 +116,7 @@ U32* GetUIBitmap(U8 idx, U32* width, U32* height)
 	if (idx < WT_UI_BITMAP_MAX)
 	{
 		bmp = ng_bitmapArray[idx];
-		if (width)  *width = ng_bitmapWidth[idx];
+		if (width)  *width  = ng_bitmapWidth[idx];
 		if (height) *height = ng_bitmapHeight[idx];
 	}
 	return bmp;
@@ -192,6 +187,8 @@ public:
 // Operations
 	DWORD AddThread(LPWSTR lpstrCmdLine, int nCmdShow)
 	{
+		DWORD dwThreadID;
+		HANDLE hThread;
 		if(m_dwCount == (MAXIMUM_WAIT_OBJECTS - 1))
 		{
 			::MessageBox(NULL, _T("ERROR: Cannot create ANY MORE threads!!!"), _T("WTL10 Application Wizard1"), MB_OK);
@@ -201,8 +198,8 @@ public:
 		_RunData* pData = new _RunData;
 		pData->lpstrCmdLine = lpstrCmdLine;
 		pData->nCmdShow = nCmdShow;
-		DWORD dwThreadID;
-		HANDLE hThread = ::CreateThread(NULL, 0, RunThread, pData, 0, &dwThreadID);
+		
+		hThread = ::CreateThread(NULL, 0, RunThread, pData, 0, &dwThreadID);
 		if(hThread == NULL)
 		{
 			::MessageBox(NULL, _T("ERROR: Cannot create thread!!!"), _T("WTL10 Application Wizard1"), MB_OK);
@@ -224,6 +221,7 @@ public:
 
 	int Run(LPWSTR lpstrCmdLine, int nCmdShow)
 	{
+		DWORD dwRet;
 		MSG msg;
 		// force message queue to be created
 		::PeekMessage(&msg, NULL, WM_USER, WM_USER, PM_NOREMOVE);
@@ -231,7 +229,6 @@ public:
 		AddThread(lpstrCmdLine, nCmdShow);
 
 		int nRet = m_dwCount;
-		DWORD dwRet;
 		while(m_dwCount > 0)
 		{
 			dwRet = ::MsgWaitForMultipleObjects(m_dwCount, m_arrThreadHandles, FALSE, INFINITE, QS_ALLINPUT);
@@ -248,8 +245,10 @@ public:
 			{
 				if(::PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 				{
-					if(msg.message == WM_USER)
-						AddThread(_T(""), SW_SHOWNORMAL);
+					if (msg.message == WM_USER)
+					{
+						//AddThread(_T(""), SW_SHOWNORMAL);
+					}
 				}
 			}
 			else
@@ -353,7 +352,8 @@ static int InitDirectWriteTextFormat(HINSTANCE hInstance)
 	}
 
 	idx = WT_TEXTFORMAT_MAINTEXT; fontSize = 13.5f; fontFamilyName = L"Microsoft Yahei UI"; testString = strChinese;
-	hr = g_pDWriteFactory->CreateTextFormat(fontFamilyName, NULL, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize, ln, &(ng_pTextFormat[idx]));
+	hr = g_pDWriteFactory->CreateTextFormat(fontFamilyName, NULL, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 
+		                                    fontSize, ln, &(ng_pTextFormat[idx]));
 	if (S_OK == hr && nullptr != ng_pTextFormat[idx])
 	{
 		// we determine the height of the text in this font by using a simple test string
@@ -373,7 +373,8 @@ static int InitDirectWriteTextFormat(HINSTANCE hInstance)
 	if (iRet) return iRet;
 
 	idx = WT_TEXTFORMAT_TITLE; fontSize = 11.5f; fontFamilyName = L"Arial"; testString = strEnglish;
-	hr = g_pDWriteFactory->CreateTextFormat(fontFamilyName, NULL, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize, ln, &(ng_pTextFormat[idx]));
+	hr = g_pDWriteFactory->CreateTextFormat(fontFamilyName, NULL, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL,
+		                                    fontSize, ln, &(ng_pTextFormat[idx]));
 	if (S_OK == hr && nullptr != ng_pTextFormat[idx])
 	{
 		// we determine the height of the text in this font by using a simple test string
