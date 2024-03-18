@@ -1,6 +1,3 @@
-// WTL10 Application Wizard1.cpp : main source file for WTL10 Application Wizard1.exe
-//
-
 #include "stdafx.h"
 #include <atlframe.h>
 #include <atlctrls.h>
@@ -21,57 +18,49 @@ volatile LONG		g_Quit = 0;
 volatile LONG       g_NetworkStatus = 0;
 volatile LONG       g_messageId = 0;
 DWORD               g_dwMainThreadID = 0;
-
+/* this value determine how many history message we want to load during startup */
+U32					g_messageSeconds = (30 * 24 * 3600); // we load the message of the passed 30 days
 int					g_win4Width = 0;
 int					g_win4Height = 0;
 
-WTFriend*           g_friendRoot = nullptr;
-WTChatGroup*        g_chatgroupRoot = nullptr;
-U32					g_friendTotal = 0;
-U32					g_chatgroupTotal = 0;
-
-HTAB*               g_peopleHTAB = nullptr;
-MemoryPoolContext   g_messageMemPool = nullptr;
-MemoryPoolContext   g_topMemPool = nullptr;
-
+/* the structure to hold my information */
 WTMyInfo*           g_myInfo = nullptr;
-
-U8*                 g_MQTTPubClientId = nullptr;
-U8*                 g_MQTTSubClientId = nullptr;
 
 HINSTANCE			g_hInstance = nullptr;
 HANDLE				g_MQTTPubEvent = nullptr;
-
+/* the critical section to sync the threads */
 CRITICAL_SECTION    g_csMQTTSub;
 CRITICAL_SECTION    g_csMQTTPub;
 CRITICAL_SECTION    g_csSQLiteDB;
-
+/* the message queue between the UI thread and the pub/sub thread */
 MessageTask*        g_PubQueue = nullptr;
 MessageTask*        g_SubQueue = nullptr;
-
+/* Direct2D and DirectWrite factory */
 ID2D1Factory*       g_pD2DFactory = nullptr;
 IDWriteFactory*     g_pDWriteFactory = nullptr;
-
+/* the cursor */
 HCURSOR				g_hCursorWE = nullptr;
 HCURSOR				g_hCursorNS = nullptr;
+#if 0
 HCURSOR				g_hCursorHand = nullptr;
 HCURSOR				g_hCursorIBeam = nullptr;
+#endif 
 wchar_t				g_AppPath[MAX_PATH + 1] = { 0 };
 wchar_t				g_DBPath[MAX_PATH + 1] = { 0 };
 
 ////////////////////////////////////////////////////////////////
 // local static variables
 ////////////////////////////////////////////////////////////////
+/* the table of different fonts */
 static IDWriteTextFormat*     ng_pTextFormat[WT_TEXTFORMAT_TOTAL] = { 0 };
 static U16                    ng_fontHeight[WT_TEXTFORMAT_TOTAL] = { 0 };
 
 static const U8* ng_hexPKRobot = (const U8*)"03339A1C8FDB6AFF46845E49D110E0400021E16146341858585C2E25CA399C01CA";
-static U8 ng_pkRobot[PUBLIC_KEY_SIZE] = { 0 };
+static U8        ng_pkRobot[PUBLIC_KEY_SIZE] = { 0 };
+/* the bitmap array to look up different bitmap resources */
 static U32* ng_bitmapArray[WT_UI_BITMAP_MAX] = { 0 };
 static U32  ng_bitmapWidth[WT_UI_BITMAP_MAX] = { 0 };
 static U32  ng_bitmapHeight[WT_UI_BITMAP_MAX] = { 0 };
-
-static wchar_t ng_strMyPubKey[67] = { 0 };
 
 static D2D1_DRAW_TEXT_OPTIONS d2dDrawTextOptions = D2D1_DRAW_TEXT_OPTIONS_NONE;
 static HMODULE hDLLD2D{};
@@ -80,16 +69,13 @@ static HMODULE hDLLDWrite{};
 CAppModule _Module;
 CMainFrame wndFrame;
 
+/* the the robot's public key */
 U8* GetRobotPublicKey()
 {
 	return ng_pkRobot;
 }
 
-wchar_t* GetMyPublicKeyString()
-{
-	return ng_strMyPubKey;
-}
-
+/* lookup the font table to get some font */
 IDWriteTextFormat* GetTextFormatAndHeight(U8 idx, U16* height)
 {
 	IDWriteTextFormat* pTxtFormat = nullptr;
@@ -160,7 +146,7 @@ public:
 	// thread init param
 	struct _RunData
 	{
-		LPTSTR lpstrCmdLine;
+		LPWSTR lpstrCmdLine;
 		int nCmdShow;
 	};
 
@@ -194,17 +180,17 @@ public:
 		return nRet;
 	}
 
-	DWORD m_dwCount;
+	DWORD  m_dwCount = 0;
 	HANDLE m_arrThreadHandles[MAXIMUM_WAIT_OBJECTS - 1];
 
-	CWoChatThreadManager() : m_dwCount(0)
+	CWoChatThreadManager()
 	{
 		for (U8 i = 0; i < MAXIMUM_WAIT_OBJECTS - 1; i++)
 			m_arrThreadHandles[i] = nullptr;
 	}
 
 // Operations
-	DWORD AddThread(LPTSTR lpstrCmdLine, int nCmdShow)
+	DWORD AddThread(LPWSTR lpstrCmdLine, int nCmdShow)
 	{
 		if(m_dwCount == (MAXIMUM_WAIT_OBJECTS - 1))
 		{
@@ -236,7 +222,7 @@ public:
 		m_dwCount--;
 	}
 
-	int Run(LPTSTR lpstrCmdLine, int nCmdShow)
+	int Run(LPWSTR lpstrCmdLine, int nCmdShow)
 	{
 		MSG msg;
 		// force message queue to be created
@@ -486,7 +472,7 @@ static int InitDirectWriteTextFormat(HINSTANCE hInstance)
 	else iRet = (int)(20 + idx);
 	if (iRet) return iRet;
 
-	idx = WT_TEXTFORMAT_OTHER1; fontSize = 18.0f; fontFamilyName = L"Arial"; testString = strEnglish;
+	idx = WT_TEXTFORMAT_ENGLISHBIG; fontSize = 15.0f; fontFamilyName = L"Arial"; testString = strEnglish;
 	hr = g_pDWriteFactory->CreateTextFormat(fontFamilyName, NULL, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize, ln, &(ng_pTextFormat[idx]));
 	if (S_OK == hr && nullptr != ng_pTextFormat[idx])
 	{
@@ -506,7 +492,7 @@ static int InitDirectWriteTextFormat(HINSTANCE hInstance)
 	else iRet = (int)(20 + idx);
 	if (iRet) return iRet;
 
-	idx = WT_TEXTFORMAT_OTHER2; fontSize = 16.f; fontFamilyName = L"Microsoft Yahei"; testString = strChinese;
+	idx = WT_TEXTFORMAT_CHINESEBIG; fontSize = 15.f; fontFamilyName = L"Microsoft Yahei UI"; testString = strChinese;
 	hr = g_pDWriteFactory->CreateTextFormat(fontFamilyName, NULL, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, fontSize, ln, &(ng_pTextFormat[idx]));
 	if (S_OK == hr && nullptr != ng_pTextFormat[idx])
 	{
@@ -591,30 +577,22 @@ static U32 MemoryContextInit()
 {
 	U32 ret = WT_FAIL;
 
-	ATLASSERT(g_topMemPool == nullptr);
-	ATLASSERT(g_messageMemPool == nullptr);
-	ATLASSERT(g_MQTTPubClientId == nullptr);
-	ATLASSERT(g_MQTTSubClientId == nullptr);
-
-	wt_HexString2Raw((U8*)ng_hexPKRobot, 66, ng_pkRobot, nullptr);
-
-	g_topMemPool = wt_mempool_create("TopMemoryContext", 0, DUI_ALLOCSET_DEFAULT_INITSIZE, DUI_ALLOCSET_DEFAULT_MAXSIZE);
-	if (g_topMemPool)
+	MemoryPoolContext ctx = wt_mempool_create("TopMemoryContext", 0, DUI_ALLOCSET_DEFAULT_INITSIZE, DUI_ALLOCSET_DEFAULT_MAXSIZE);
+	if (ctx)
 	{
-		g_MQTTPubClientId = (U8*)wt_palloc0(g_topMemPool, MQTT_CLIENTID_SIZE);
-		g_MQTTSubClientId = (U8*)wt_palloc0(g_topMemPool, MQTT_CLIENTID_SIZE);
-		g_myInfo = (WTMyInfo*)wt_palloc0(g_topMemPool, sizeof(WTMyInfo));
-		if (g_myInfo && g_MQTTPubClientId && g_MQTTSubClientId)
+		g_myInfo = (WTMyInfo*)wt_palloc0(ctx, sizeof(WTMyInfo));
+		if (g_myInfo)
 		{
-			g_myInfo->icon32 = (U32*)wt_palloc0(g_topMemPool, WT_SMALL_ICON_HEIGHT);
-			g_messageMemPool = wt_mempool_create("MessagePool", 0, DUI_ALLOCSET_DEFAULT_INITSIZE, DUI_ALLOCSET_DEFAULT_MAXSIZE);
-			if (g_messageMemPool && g_myInfo->icon32)
+			g_myInfo->ctx = ctx;
+			g_myInfo->icon32 = (U32*)wt_palloc0(ctx, WT_SMALL_ICON_HEIGHT);
+			g_myInfo->pool = wt_mempool_create("MessagePool", 0, DUI_ALLOCSET_DEFAULT_INITSIZE, DUI_ALLOCSET_DEFAULT_MAXSIZE);
+			if (g_myInfo->pool && g_myInfo->icon32)
 			{
 				HASHCTL hctl = { 0 };
 				hctl.keysize = PUBLIC_KEY_SIZE;
 				hctl.entrysize = hctl.keysize + sizeof(WTFriend*);
-				g_peopleHTAB = hash_create("PeopleHTAB", 256, &hctl, HASH_ELEM | HASH_BLOBS);
-				if (g_peopleHTAB)
+				g_myInfo->lookuptable = hash_create("FriendHTAB", 256, &hctl, HASH_ELEM | HASH_BLOBS);
+				if (g_myInfo->lookuptable)
 					ret = WT_OK;
 			}
 		}
@@ -624,11 +602,11 @@ static U32 MemoryContextInit()
 
 static void MemoryContextTerm()
 {
-	hash_destroy(g_peopleHTAB);
-	wt_mempool_destroy(g_messageMemPool);
-	g_messageMemPool = nullptr;
-	wt_mempool_destroy(g_topMemPool);
-	g_topMemPool = nullptr;
+	ATLASSERT(g_myInfo);
+	hash_destroy((HTAB*)g_myInfo->lookuptable);
+	wt_mempool_destroy(g_myInfo->pool);
+	wt_mempool_destroy(g_myInfo->ctx);
+	g_myInfo = nullptr;
 }
 
 static void InitUIBitmap()
@@ -640,32 +618,31 @@ static void InitUIBitmap()
 		ng_bitmapHeight[i] = 0;
 	}
 
-	ng_bitmapArray[WT_UI_BMP_MYLARGEICON] = (U32*)xbmpIcon128;
-	ng_bitmapWidth[WT_UI_BMP_MYLARGEICON] = 128;
+	ng_bitmapArray[WT_UI_BMP_MYLARGEICON]  = (U32*)xbmpIcon128;
+	ng_bitmapWidth[WT_UI_BMP_MYLARGEICON]  = 128;
 	ng_bitmapHeight[WT_UI_BMP_MYLARGEICON] = 128;
 
-	ng_bitmapArray[WT_UI_BMP_MYSMALLICON] = (U32*)xbmpIcon32;
-	ng_bitmapWidth[WT_UI_BMP_MYSMALLICON] = 32;
+	ng_bitmapArray[WT_UI_BMP_MYSMALLICON]  = (U32*)xbmpIcon32;
+	ng_bitmapWidth[WT_UI_BMP_MYSMALLICON]  = 32;
 	ng_bitmapHeight[WT_UI_BMP_MYSMALLICON] = 32;
 
-	ng_bitmapArray[WT_UI_BMP_AILARGEICON] = (U32*)xbmpAI128;
-	ng_bitmapWidth[WT_UI_BMP_AILARGEICON] = 128;
+	ng_bitmapArray[WT_UI_BMP_AILARGEICON]  = (U32*)xbmpAI128;
+	ng_bitmapWidth[WT_UI_BMP_AILARGEICON]  = 128;
 	ng_bitmapHeight[WT_UI_BMP_AILARGEICON] = 128;
 
-	ng_bitmapArray[WT_UI_BMP_AIMSALLICON] = (U32*)xbmpAI32;
-	ng_bitmapWidth[WT_UI_BMP_AIMSALLICON] = 32;
-	ng_bitmapHeight[WT_UI_BMP_AIMSALLICON] = 32;
+	ng_bitmapArray[WT_UI_BMP_AISMALLICON]  = (U32*)xbmpAI32;
+	ng_bitmapWidth[WT_UI_BMP_AISMALLICON]  = 32;
+	ng_bitmapHeight[WT_UI_BMP_AISMALLICON] = 32;
 }
 
 static int AppInit(HINSTANCE hInstance)
 {
 	int iRet = 0;
-	g_PubQueue = nullptr;
-	g_SubQueue = nullptr;
-	g_friendRoot = nullptr;
-	g_chatgroupRoot = nullptr;
-	g_friendTotal = 0;
-	g_chatgroupTotal = 0;
+
+	g_PubQueue       = nullptr;
+	g_SubQueue       = nullptr;
+
+	wt_HexString2Raw((U8*)ng_hexPKRobot, 66, ng_pkRobot, nullptr);
 
 	InitUIBitmap();
 	DUI_Init();
@@ -683,8 +660,10 @@ static int AppInit(HINSTANCE hInstance)
 
 	g_hCursorWE = ::LoadCursor(NULL, IDC_SIZEWE);
 	g_hCursorNS = ::LoadCursor(NULL, IDC_SIZENS);
-	//g_hCursorHand = ::LoadCursor(nullptr, IDC_HAND);
-	//g_hCursorIBeam = ::LoadCursor(NULL, IDC_IBEAM);
+#if 0
+	g_hCursorHand = ::LoadCursor(nullptr, IDC_HAND);
+	g_hCursorIBeam = ::LoadCursor(NULL, IDC_IBEAM);
+#endif 
 	if (NULL == g_hCursorWE || NULL == g_hCursorNS) // || NULL == g_hCursorHand || NULL == g_hCursorIBeam)
 		return 3;
 
@@ -713,7 +692,6 @@ static void AppTerm(HINSTANCE hInstance)
 
 	// tell all threads to quit
 	InterlockedIncrement(&g_Quit);
-
 	// wait for all threads to quit gracefully
 	tries = 20;
 	while (g_threadCount && tries > 0)
@@ -723,6 +701,8 @@ static void AppTerm(HINSTANCE hInstance)
 	}
 	DUI_Term();
 
+	ATLASSERT(g_threadCount == 0);
+	
 	ReleaseUnknown(g_pDWriteFactory);
 	ReleaseUnknown(g_pD2DFactory);
 
@@ -738,6 +718,7 @@ static void AppTerm(HINSTANCE hInstance)
 	}
 
 	CloseHandle(g_MQTTPubEvent);
+	
 	DeleteCriticalSection(&g_csMQTTSub);
 	DeleteCriticalSection(&g_csMQTTPub);
 	DeleteCriticalSection(&g_csSQLiteDB);
@@ -746,17 +727,21 @@ static void AppTerm(HINSTANCE hInstance)
 	MemoryContextTerm();
 }
 
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrCmdLine, int nCmdShow)
+/* the entry point of WoChat application */
+int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpstrCmdLine, _In_ int nCmdShow)
 {
 	int nRet = 0;
 	HRESULT hRes = ::CoInitialize(NULL);
 	ATLASSERT(SUCCEEDED(hRes));
 
 	UNREFERENCED_PARAMETER(hPrevInstance);
+	UNREFERENCED_PARAMETER(lpstrCmdLine);
+	UNREFERENCED_PARAMETER(nCmdShow);
 
-	g_Quit = 0;
-	g_threadCount = 0;
-	g_hInstance = hInstance;  // save the instance
+	g_Quit           = 0;
+	g_threadCount    = 0;
+	g_myInfo         = nullptr;
+	g_hInstance      = hInstance;  // save the instance
 	g_dwMainThreadID = GetCurrentThreadId();
 
 	// The Microsoft Security Development Lifecycle recommends that all
@@ -771,39 +756,35 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpstrCm
 	ATLASSERT(SUCCEEDED(hRes));
 
 	nRet = AppInit(hInstance);
-	if (nRet)
+	if (nRet == 0)
 	{
-		wchar_t msg[MAX_PATH + 1] = { 0 };
-		swprintf((wchar_t*)msg, MAX_PATH, L"AppInit() is failed. Return code:[%d]", nRet);
-		MessageBoxW(NULL, (LPCWSTR)msg, L"WoChat Error", MB_OK);
-		goto ExitThisApplication;
-	}
-	else // BLOCK: Run application
-	{
-		nRet = 0;
-		U32 status = GetAccountNumber(&nRet); // we check if there is any account available 
+		// check if there is any account available 
+		U32 status = GetAccountNumber(&nRet); 
 		if (status == WT_OK)
 		{
+			/* if nRet == 0, then we need to register, otherwise, only login */
 			bool bLoginIsSuccessful = nRet ? DoLogin() : DoRegistration();
 			if (bLoginIsSuccessful)
 			{
-				ATLASSERT(g_myInfo);
-				wt_Raw2HexStringW(g_myInfo->pubkey, PUBLIC_KEY_SIZE, ng_strMyPubKey, nullptr);
-
+				// the main logic goes here
 				CWoChatThreadManager mgr;
-				nRet = mgr.Run(lpstrCmdLine, nCmdShow); // the main part
+				nRet = mgr.Run(lpstrCmdLine, nCmdShow); 
 			}
 		}
 		else
 		{
-			wchar_t msg[MAX_PATH + 1] = { 0 };
-			swprintf((wchar_t*)msg, MAX_PATH, L"Cannot access SQLite database!. Return code:[%u]", status);
+			wchar_t msg[64] = { 0 };
+			swprintf((wchar_t*)msg, 64, L"Cannot access SQLite database! Return code:[%u]", status);
 			MessageBoxW(NULL, (LPCWSTR)msg, L"WoChat Error", MB_OK);
-			goto ExitThisApplication;
 		}
 	}
+	else 
+	{
+		wchar_t msg[64] = { 0 };
+		swprintf((wchar_t*)msg, 64, L"AppInit is failed. Return code:[%d]", nRet);
+		MessageBoxW(NULL, (LPCWSTR)msg, L"WoChat Error", MB_OK);
+	}
 
-ExitThisApplication:
 	AppTerm(hInstance);
 	_Module.Term();
 	::CoUninitialize();

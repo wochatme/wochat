@@ -53,6 +53,7 @@ U8  wt_GenRandomU8(U8 upper);
  */
 U32 wt_GenRandomU32(U32 upper);
 
+/* generate the CRC32 of a byte array with known length */
 U32 wt_GenCRC32(const U8* s, U32 len);
 
 // the caller has to be sure bmp128x128 has 128X128X4 bytes 

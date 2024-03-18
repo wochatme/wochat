@@ -94,31 +94,40 @@ public:
 		}
 	}
 
-	int UpdateFrinedInfo(U8* blob, U32 blen)
+	WTFriend* UpdateFrinedInfo(U8* blob, U32 blen, bool* bFound)
 	{
-		int r = 0;
+		WTFriend* people = nullptr;
 		bool found = false;
 
 		assert(blob);
 		assert(blen == WT_BLOB_LEN);
 
 		U8* pubkey = blob + 4;
-		WTGuy* guy = (WTGuy*)hash_search(g_peopleHTAB, pubkey, HASH_FIND, &found);
+		WTGuy* guy = (WTGuy*)hash_search((HTAB*)g_myInfo->lookuptable, pubkey, HASH_FIND, &found);
+		if (bFound) *bFound = found;
 		if (found)
 		{
 			assert(guy);
 			if (guy->people)
 			{
 				PopluateFriendInfo(guy->people, blob, blen);
-				m_status |= DUI_STATUS_NEEDRAW;  // need to redraw this virtual window
-				InvalidateDUIWindow();           // set the gloabl redraw flag so next paint routine will do the paint work
-				r++;
+				if (m_mode == WIN2_MODE_TALK)
+				{
+					WTChatGroup* cg = people->chatgroup;
+					if(cg == m_chatgroupSelected)
+						people = guy->people;
+				}
+				else if (m_mode == WIN2_MODE_FRIEND)
+				{
+					if(guy->people == m_friendSelected)
+						people = guy->people;
+				}
 			}
 		}
-		return r;
+		return people;
 	}
 
-	U32 AddNewFriend(U8* blob, U32 blen, U8* icon)
+	U32 AddNewFriend(U8* blob, U32 blen, U8* utf8Source, U8 slen)
 	{
 		U32 ret = WT_FAIL;
 		assert(blob);
@@ -131,6 +140,8 @@ public:
 		{
 			m_friendRoot = (WTFriend*)wt_palloc0(m_pool, sizeof(WTFriend));
 			assert(m_friendRoot);
+			m_friendRoot->icon32 = (U32*)wt_palloc0(m_pool, WT_SMALL_ICON_SIZE);
+			assert(m_friendRoot->icon32);
 			q = m_friendRoot;
 		}
 		else
@@ -143,6 +154,9 @@ public:
 				p = p->next;
 			}
 			q = (WTFriend*)wt_palloc0(m_pool, sizeof(WTFriend));
+			assert(q);
+			q->icon32 = (U32*)wt_palloc0(m_pool, WT_SMALL_ICON_SIZE);
+			assert(q->icon32);
 			p->next = q;
 			q->prev = p;
 		}
@@ -151,12 +165,12 @@ public:
 		{
 			bool found = false;
 			U8* pubkey = blob + 4;
-			WTGuy*  guy = (WTGuy*)hash_search(g_peopleHTAB, pubkey, HASH_ENTER, &found);
+			WTGuy*  guy = (WTGuy*)hash_search((HTAB*)g_myInfo->lookuptable, pubkey, HASH_ENTER, &found);
 			assert(guy);
 			if (!found)
 			{
 				guy->people = q;
-				PopluateFriendInfo(guy->people, blob, blen);
+				PopluateFriendInfo(guy->people, blob, blen, utf8Source, slen);
 				ret = WT_OK;
 				m_status |= DUI_STATUS_NEEDRAW;  // need to redraw this virtual window
 				InvalidateDUIWindow();           // set the gloabl redraw flag so next paint routine will do the paint work
@@ -165,9 +179,9 @@ public:
 		return ret;
 	}
 
-	U32 ProcessTextMessage(U8* pubkey, U16* text, U32 text_length)
+	int ProcessTextMessage(U8* pubkey, U16* text, U32 text_length)
 	{
-#if 0
+		int r = 0;
 		WTFriend* people = nullptr;
 		bool found = false;
 		int txtH = 0, txtW = 0;
@@ -176,25 +190,34 @@ public:
 			return WT_DWRITE_METRIC_ERROR;
 
 		assert(pubkey);
-		WTGuy* guy = (WTGuy*)hash_search(g_peopleHTAB, pubkey, HASH_ENTER, &found);
+		WTGuy* guy = (WTGuy*)hash_search((HTAB*)g_myInfo->lookuptable, pubkey, HASH_ENTER, &found);
 		if (!found) // the sender of this message is not in my friend list
 		{
 			int i;
 			U16* p16;
 			assert(guy);
-			WTFriend* p = (WTFriend*)wt_palloc0(g_messageMemPool, sizeof(WTFriend));
+			WTFriend* p = (WTFriend*)wt_palloc0(g_myInfo->pool, sizeof(WTFriend));
 			if (p)
 			{
-				guy->people = p;
-				people = p;
-				p16 = (U16*)p->name;
-				for (i = 0; i < 4; i++) p16[i] = txtNameUnknown[i];
-				p->name_length = 4;
+				p->icon32 = (U32*)wt_palloc0(g_myInfo->pool, WT_SMALL_ICON_SIZE);
+				if (p->icon32)
+				{
+					guy->people = p;
+					people = p;
+					p16 = (U16*)p->name;
+					for (i = 0; i < 4; i++) p16[i] = txtNameUnknown[i];
+					p->name_length = 4;
 
-				for (i = 0; i < PUBLIC_KEY_SIZE; i++) p->pubkey[i] = pubkey[i];
-				p->icon128 = GetUIBitmap(WT_UI_BMP_MYLARGEICON);
-				//wt_Resize128To32Bmp(p->iconLarge, p->icon);
-				QueryFriendInformation(pubkey);
+					for (i = 0; i < PUBLIC_KEY_SIZE; i++) p->pubkey[i] = pubkey[i];
+					p->icon128 = GetUIBitmap(WT_UI_BMP_MYLARGEICON);
+					wt_Resize128To32Bmp(p->icon128, p->icon32);
+					QueryFriendInformation(pubkey);
+				}
+				else
+				{
+					wt_pfree(p);
+					return 0;
+				}
 			}
 		}
 		else
@@ -205,62 +228,72 @@ public:
 	
 		if (people)
 		{
+			assert(people->icon32);
 			WTChatGroup* cg = people->chatgroup;
 			if (cg)
 			{
 				assert(cg->people == people);
 				WTChatMessage* xmsg = (WTChatMessage*)wt_palloc0(m_pool, sizeof(WTChatMessage));
-				assert(xmsg);
-				xmsg->message = text;
-				xmsg->message_length = text_length;
-				xmsg->height = txtH;
-				xmsg->width = txtW;
-				if (cg->msgHead == nullptr)
+				if (xmsg)
 				{
-					assert(cg->msgTail == nullptr);
-					cg->msgHead = xmsg;
-					cg->msgTail = xmsg;
+					r++;
+					xmsg->message = text;
+					xmsg->message_length = text_length;
+					xmsg->height = txtH;
+					xmsg->width = txtW;
+					if (cg->msgHead == nullptr)
+					{
+						assert(cg->msgTail == nullptr);
+						cg->msgHead = xmsg;
+						cg->msgTail = xmsg;
+					}
+					else
+					{
+						assert(cg->msgTail);
+						cg->msgTail->next = xmsg;
+						xmsg->prev = cg->msgTail;
+						cg->msgTail = xmsg;
+					}
+					cg->total++;
+					cg->unread++;
+					cg->height += xmsg->height;
+					NotifyParent(m_message, WIN2_MODE_TALK, (LPARAM)cg);
 				}
-				else
-				{
-					assert(cg->msgTail);
-					cg->msgTail->next = xmsg;
-					xmsg->prev = cg->msgTail;
-					cg->msgTail = xmsg;
-				}
-				cg->total++;
-				cg->unread++;
-				cg->height += xmsg->height;
-				//NotifyParent(m_message, WIN2_MODE_TALK, (LPARAM)cg);
 			}
 			else
 			{
 				cg = (WTChatGroup*)wt_palloc0(m_pool, sizeof(WTChatGroup));
-				assert(cg);
-				cg->people = people;
-				people->chatgroup = cg;
-				cg->width = g_win4Width;
-				m_chatgroupTotal++;
-				// put cg in the head of the double-link
-				cg->next = m_chatgroupRoot;
-				if(m_chatgroupRoot)
-					m_chatgroupRoot->prev = cg;
-				m_chatgroupRoot = cg;
-				m_chatgroupSelected = cg;
+				if (cg)
+				{
+					WTChatMessage* xmsg = (WTChatMessage*)wt_palloc0(m_pool, sizeof(WTChatMessage));
+					if (xmsg)
+					{
+						r++;
+						xmsg->message = text;
+						xmsg->message_length = text_length;
+						xmsg->height = txtH;
+						xmsg->width = txtW;
+						// double link the people and chatgroup objects
+						cg->people = people;
+						people->chatgroup = cg;
+						cg->width = g_win4Width;
+						m_chatgroupTotal++;
+						// put cg in the head of the double-link
+						cg->next = m_chatgroupRoot;
+						if (m_chatgroupRoot)
+							m_chatgroupRoot->prev = cg;
+						m_chatgroupRoot = cg;
+						m_chatgroupSelected = cg;
 
-				WTChatMessage* xmsg = (WTChatMessage*)wt_palloc0(m_pool, sizeof(WTChatMessage));
-				assert(xmsg);
-				xmsg->message = text;
-				xmsg->message_length = text_length;
-				xmsg->height = txtH;
-				xmsg->width = txtW;
-				cg->msgHead = cg->msgTail = xmsg;
-				cg->total = 1;
-				NotifyParent(m_message, WIN2_MODE_TALK, (LPARAM)cg);
+						cg->msgHead = cg->msgTail = xmsg;
+						cg->total = 1;
+						NotifyParent(m_message, WIN2_MODE_TALK, (LPARAM)cg);
+					}
+					else wt_pfree(cg);
+				}
 			}
 		}
-#endif
-		return WT_OK;
+		return r;
 	}
 
 	U32 InitSettings()
@@ -599,7 +632,7 @@ public:
 					color = DEFAULT_COLOR;
 				dy = pos - m_ptOffset.y;
 				DUI_ScreenFillRect(m_screen, w, h, color, w - margin, ITEM_HEIGHT, 0, dy);
-				DUI_ScreenDrawRectRound(m_screen, w, h, people->icon, WT_SMALL_ICON_WIDTH, WT_SMALL_ICON_HEIGHT, dx, dy + ITEM_MARGIN, color, color);
+				DUI_ScreenDrawRectRound(m_screen, w, h, people->icon32, WT_SMALL_ICON_WIDTH, WT_SMALL_ICON_HEIGHT, dx, dy + ITEM_MARGIN, color, color);
 			}
 			p = p->next;
 			pos += ITEM_HEIGHT;
@@ -636,7 +669,7 @@ public:
 
 				dy = pos - m_ptOffset.y;
 				DUI_ScreenFillRect(m_screen, w, h, color, w - margin, ITEM_HEIGHT, 0, dy);
-				DUI_ScreenDrawRectRound(m_screen, w, h, p->icon, WT_SMALL_ICON_WIDTH, WT_SMALL_ICON_HEIGHT, dx, dy + ITEM_MARGINF, color, color);
+				DUI_ScreenDrawRectRound(m_screen, w, h, p->icon32, WT_SMALL_ICON_WIDTH, WT_SMALL_ICON_HEIGHT, dx, dy + ITEM_MARGINF, color, color);
 			}
 			p = p->next;
 			pos += ITEM_HEIGHT;

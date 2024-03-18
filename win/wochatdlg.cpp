@@ -834,7 +834,7 @@ U32 OpenAccount(U32 idx, U16* pwd, U32 len)
 		return WT_UTF16ToUTF8_ERR;
 
 	ret = WT_FAIL;
-	utf8Password = (U8*)wt_palloc(g_messageMemPool, utf8len);
+	utf8Password = (U8*)wt_palloc(g_myInfo->pool, utf8len);
 	if (utf8Password)
 	{
 		int  rc;
@@ -884,23 +884,23 @@ U32 OpenAccount(U32 idx, U16* pwd, U32 len)
 							WT_MEMCMP(pk, p, PUBLIC_KEY_SIZE, isEqual);
 							if (isEqual) // the public key is matched! so we are good
 							{
-								U8* s;
 								U8 length;
 								U32 status, utf16len;
-								U32* imgL = GetUIBitmap(WT_UI_BMP_MYLARGEICON);
-								assert(imgL);
-								U8* utf8Name  = blob + 4 + PUBLIC_KEY_SIZE + 4;
-								U8* utf8Area  = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN;
-								U8* utf8Motto = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN;
-								U8* icon32    = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN;
-								U8* icon128   = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN + WT_SMALL_ICON_SIZE;
+								U32* img128 = GetUIBitmap(WT_UI_BMP_MYLARGEICON);
+								assert(img128);
+								U8* s = blob + 4 + PUBLIC_KEY_SIZE + 4;
+								U8* utf8Name  = s;
+								U8* utf8Area  = s + WT_NAME_MAX_LEN;
+								U8* utf8Motto = s + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN;
+								U8* icon32    = s + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN;
+								U8* icon128   = s + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN + WT_SMALL_ICON_SIZE;
 
 								wt_sha256_hash(sk, SECRET_KEY_SIZE, hash);
-								wt_Raw2HexString(hash, 11, g_MQTTPubClientId, nullptr);
-								wt_Raw2HexString(hash + 16, 11, g_MQTTSubClientId, nullptr);
-								g_MQTTSubClientId[0] = 'S';
-								g_MQTTPubClientId[0] = 'P';
-
+								wt_Raw2HexString(hash, 11, g_myInfo->sub_clientid, nullptr);
+								wt_Raw2HexString(hash + 16, 11, g_myInfo->pub_clientid, nullptr);
+								g_myInfo->sub_clientid[0] = 'S';
+								g_myInfo->pub_clientid[0] = 'P';
+								
 								ret = WT_OK;
 
 								memcpy(g_myInfo->seckey, sk, SECRET_KEY_SIZE);
@@ -952,14 +952,14 @@ U32 OpenAccount(U32 idx, U16* pwd, U32 len)
 								}
 								memcpy(g_myInfo->icon32, icon32, WT_SMALL_ICON_SIZE);
 
-								if (memcmp(imgL, icon128, WT_SMALL_ICON_SIZE) == 0)
+								if (memcmp(img128, icon128, WT_SMALL_ICON_SIZE) == 0)
 								{
-									g_myInfo->icon128 = imgL; // the default large icon
+									g_myInfo->icon128 = img128; // the default large icon
 								}
 								else
 								{
 									g_myInfo->property |= WT_MYINFO_LARGEICON_ALLOC; // indicate that iconLarge is freeable
-									g_myInfo->icon128 = (U32*)wt_palloc(g_topMemPool, WT_LARGE_ICON_SIZE);
+									g_myInfo->icon128 = (U32*)wt_palloc(g_myInfo->ctx, WT_LARGE_ICON_SIZE);
 									memcpy(g_myInfo->icon128, icon128, WT_LARGE_ICON_SIZE);
 								}
 							}
@@ -1050,7 +1050,7 @@ U32 CreateNewAccount(U16* name, U8 nlen, U16* pwd, U8 plen, U32* skIdx)
 		ret = wt_UTF16ToUTF8((U16*)pwd, plen, nullptr, &utf8len);
 		if (WT_OK == ret)
 		{
-			U8* utf8Password = (U8*)wt_palloc(g_messageMemPool, utf8len);
+			U8* utf8Password = (U8*)wt_palloc(g_myInfo->pool, utf8len);
 			if (utf8Password)
 			{
 				ret = wt_UTF16ToUTF8((U16*)pwd, plen, utf8Password, nullptr);

@@ -18,19 +18,12 @@ extern volatile LONG  g_threadCount;
 extern volatile LONG  g_Quit;
 extern volatile LONG  g_NetworkStatus;
 extern volatile LONG  g_messageId;
+//extern volatile LONG  g_UpdateMyInfo;
 
-extern volatile LONG  g_UpdateMyInfo;
-extern DWORD g_dwMainThreadID;
-
-extern WTFriend*         g_friendRoot;
-extern WTChatGroup*      g_chatgroupRoot;
-extern U32				 g_friendTotal;
-extern U32				 g_chatgroupTotal;
+extern DWORD             g_dwMainThreadID;
+extern U32		         g_messageSeconds;
 
 extern WTMyInfo*         g_myInfo;
-extern HTAB*             g_peopleHTAB;
-extern MemoryPoolContext g_messageMemPool;
-extern MemoryPoolContext g_topMemPool;
 
 extern HCURSOR			 g_hCursorWE;
 extern HCURSOR			 g_hCursorNS;
@@ -42,9 +35,6 @@ extern HWND	 g_hWndShareScreen;
 extern HWND	 g_hWndChatHistory;
 extern HWND	 g_hWndAudioCall;
 extern HWND  g_hWndSearchAll;
-
-extern U8* g_MQTTPubClientId;
-extern U8* g_MQTTSubClientId;
 
 extern HANDLE             g_MQTTPubEvent;
 
@@ -63,8 +53,8 @@ extern IDWriteFactory* g_pDWriteFactory;
 #define WT_TEXTFORMAT_INPUTMESSAGE	5
 #define WT_TEXTFORMAT_USERNAME		6
 #define WT_TEXTFORMAT_OTHER0		7
-#define WT_TEXTFORMAT_OTHER1		8
-#define WT_TEXTFORMAT_OTHER2		9
+#define WT_TEXTFORMAT_ENGLISHBIG	8
+#define WT_TEXTFORMAT_CHINESEBIG	9
 #define WT_TEXTFORMAT_OTHER3		10
 #define WT_TEXTFORMAT_OTHER4		11
 #define WT_TEXTFORMAT_OTHER5		12
@@ -87,7 +77,7 @@ extern IDWriteFactory* g_pDWriteFactory;
 #define WM_WIN_BRING_TO_FRONT	(WM_USER + 500)
 
 #define WIN4_GET_PUBLICKEY		1
-#define WIN4_UPDATE_MESSAGE		2
+#define WIN5_UPDATE_MESSAGE		2
 
 #define DLG_ADD_FRIEND			0
 
@@ -115,7 +105,7 @@ U32 GetReceiverPublicKey(void* parent, U8* pk);
 
 U8* GetRobotPublicKey();
 
-void PopluateFriendInfo(WTFriend* p, U8* blob, U32 blen);
+void PopluateFriendInfo(WTFriend* p, U8* blob, U32 blen, U8* utf8Source = nullptr, U8 slen = 0);
 
 void CopyPublicKey(U8* pubkey);
 
@@ -132,9 +122,6 @@ MessageTask* CreateMyInfoMessage();
 S64 GetCurrentUTCTime64();
 
 U32* GetUIBitmap(U8 idx, U32* width = nullptr, U32* height = nullptr);
-
-//void GetU64TimeStringW(S64 tm, wchar_t* tmstr, U16 len);
-//U32 GetSecretKeyNumber(U32* total);
 
 IDWriteTextFormat* GetTextFormatAndHeight(U8 idx, U16* height = nullptr);
 

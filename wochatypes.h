@@ -54,8 +54,8 @@ typedef size_t Size;
 /* MQTT client is has maximum 23 bytes */
 #define MQTT_CLIENTID_SIZE	23
 
-//#define MQTT_DEFAULT_HOST	("www.boobooke.com")
-#define MQTT_DEFAULT_HOST	("test.mosquitto.org")
+#define MQTT_DEFAULT_HOST	("www.boobooke.com")
+//#define MQTT_DEFAULT_HOST	("test.mosquitto.org")
 #define MQTT_DEFAULT_PORT	1883
 
 #define WT_NETWORK_IS_BAD		0
@@ -111,29 +111,6 @@ typedef struct MessageTask
 			for(i=0; i<length; i++) if(mem1[i] != mem2[i]) break;\
 			result = (i == length); \
 		} while(0)
-
-
-#define WT_MYINFO_LARGEICON_ALLOC	0x0000001  /* the large icon is pointing to an alloced memory block*/
-
-typedef struct WTMyInfo
-{
-	U32  property;
-	U32  version;
-	S64  creation_date;
-	U32  dob;  // day of birth
-	U8   sex;
-	U8   name_length;
-	U8   motto_length;
-	U8   area_length;
-	U8   name[WT_NAME_MAX_LEN];
-	U8   motto[WT_MOTTO_MAX_LEN];
-	U8   area[WT_AREA_MAX_LEN];
-	U32* icon128;
-	U32* icon32;
-	U8   skenc[SECRET_KEY_SIZE]; /* the encrypted secret key! */
-	U8   seckey[SECRET_KEY_SIZE];
-	U8   pubkey[PUBLIC_KEY_SIZE];
-} WTMyInfo;
 
 typedef struct WTChatMessage
 {
@@ -194,7 +171,7 @@ struct WTFriend
 	U8   area_length;
 	U8   from[WT_FROM_MAX_LEN];		// which method do I get this friend
 	U8   from_length;
-	U32  icon[WT_SMALL_ICON_WIDTH * WT_SMALL_ICON_HEIGHT];
+	U32* icon32;
 	U32* icon128;
 };
 
@@ -203,6 +180,37 @@ typedef struct WTGuy
 	U8 pubkey[PUBLIC_KEY_SIZE];
 	WTFriend* people;
 } WTGuy;
+
+#define WT_MYINFO_LARGEICON_ALLOC	0x0000001  /* the large icon is pointing to an alloced memory block*/
+/* the data strcture to describe myself */
+typedef struct WTMyInfo
+{
+	void* ctx;        /* point to the memory pool this struct is in */
+	void* pool;
+	U32   property;
+	U32   version;
+	S64   creation_date;
+	U32   dob;  // day of birth
+	U8    sex;
+	U8    name_length;
+	U8    area_length;
+	U8    motto_length;
+	U8    name[WT_NAME_MAX_LEN];
+	U8    area[WT_AREA_MAX_LEN];
+	U8    motto[WT_MOTTO_MAX_LEN];
+	U32*  icon32;
+	U32*  icon128;
+	U8    skenc[SECRET_KEY_SIZE]; /* the encrypted secret key! */
+	U8    seckey[SECRET_KEY_SIZE];
+	U8    pubkey[PUBLIC_KEY_SIZE];
+	U8    sub_clientid[MQTT_CLIENTID_SIZE];
+	U8    pub_clientid[MQTT_CLIENTID_SIZE];
+	U32   people_count;
+	U32   chatgroup_count;
+	WTFriend*    people;
+	WTChatGroup* chatgroup;
+	void*        lookuptable;
+} WTMyInfo;
 
 #define SETTING_GENERAL		0
 #define SETTING_NETWORK		1
@@ -265,7 +273,7 @@ typedef struct WTSetting
 #define WT_UI_BMP_MYLARGEICON				0
 #define WT_UI_BMP_MYSMALLICON				1
 #define WT_UI_BMP_AILARGEICON				2
-#define WT_UI_BMP_AIMSALLICON				3
+#define WT_UI_BMP_AISMALLICON				3
 
 #define WT_BYTE		uint8_t
 #define WT_WORD		uint16_t

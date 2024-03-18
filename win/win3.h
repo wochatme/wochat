@@ -28,54 +28,6 @@ public:
 	}
 	~XWindow3() {}
 
-	void SetFriendPointer(WTFriend* people)
-	{
-#if 0
-		m_friend = people;
-		if (m_friend)
-		{
-			U16 mode = WIN3_MODE_FRIEND;
-			U16 id = XWIN3_FRIEND_LABEL_NAME;
-			wchar_t hexPK[67];
-			XLabel* lb;
-			XButton* btn;
-			XBitmap* bmp;
-			lb  = (XLabel*)m_ctlArray[mode][id];
-			assert(lb);
-			lb->setText((wchar_t*)m_friend->name, m_friend->nameLen);
-
-			id = XWIN3_FRIEND_LABEL_PUBKEY;
-			lb = (XLabel*)m_ctlArray[mode][id];
-			assert(lb);
-			wt_Raw2HexStringW(m_friend->pubkey, 33, hexPK, nullptr);
-			lb->setText((wchar_t*)hexPK, 66);
-#if 0
-			id = XWIN3_FRIEND_BUTTON_ICON;
-			btn = (XButton*)m_ctlArray[mode][id];
-			assert(btn);
-			bmp = btn->imgNormal;
-			bmp->data = m_friend->iconLarge;
-			bmp->h = m_friend->hLarge;
-			bmp->w = m_friend->wLarge;
-			bmp = btn->imgHover;
-			bmp->data = m_friend->iconLarge;
-			bmp->h = m_friend->hLarge;
-			bmp->w = m_friend->wLarge;
-			bmp = btn->imgPress;
-			bmp->data = m_friend->iconLarge;
-			bmp->h = m_friend->hLarge;
-			bmp->w = m_friend->wLarge;
-			bmp = btn->imgActive;
-			bmp->data = m_friend->iconLarge;
-			bmp->h = m_friend->hLarge;
-			bmp->w = m_friend->wLarge;
-#endif 
-		}
-#endif
-		m_status |= DUI_STATUS_NEEDRAW;  // need to redraw this virtual window
-		InvalidateDUIWindow();           // set the gloabl redraw flag so next paint routine will do the paint work
-	}
-
 	void AfterSetMode()
 	{
 		switch (m_mode)
@@ -149,7 +101,7 @@ public:
 				dx = gap;
 				dy = gap;
 				xctl->setPosition(dx, dy);
-				B = gap + sh + gap + gap;
+				B = gap + sh + gap + 1 + gap;
 				L = gap + sh;
 
 				id = XWIN3_FRIEND_LABEL_NAME;
@@ -177,8 +129,34 @@ public:
 				id = XWIN3_FRIEND_BUTTON_PUBKEY;
 				xctl = m_ctlArray[m_mode][id];
 				assert(nullptr != xctl);
+				sw = xctl->getHeight();
+				sh = xctl->getHeight();
 				dx = gap;
 				dy = B;
+				xctl->setPosition(dx, dy);
+
+				id = XWIN3_FRIEND_BUTTON_DOB;
+				xctl = m_ctlArray[m_mode][id];
+				assert(nullptr != xctl);
+				dy += (sh + gap);
+				xctl->setPosition(dx, dy);
+
+				id = XWIN3_FRIEND_BUTTON_SEX;
+				xctl = m_ctlArray[m_mode][id];
+				assert(nullptr != xctl);
+				dy += (sh + gap);
+				xctl->setPosition(dx, dy);
+
+				id = XWIN3_FRIEND_BUTTON_AREA;
+				xctl = m_ctlArray[m_mode][id];
+				assert(nullptr != xctl);
+				dy += (sh + gap);
+				xctl->setPosition(dx, dy);
+
+				id = XWIN3_FRIEND_BUTTON_SOURCE;
+				xctl = m_ctlArray[m_mode][id];
+				assert(nullptr != xctl);
+				dy += (sh + gap);
 				xctl->setPosition(dx, dy);
 
 				id = XWIN3_FRIEND_LABEL_PUBKEY;
@@ -188,62 +166,42 @@ public:
 				offset = (32 - sh) >> 1;
 				dx = gap + 32 + gap;
 				dy = B + offset;
-				xctl->setPosition(dx, dy);
-
-				id = XWIN3_FRIEND_BUTTON_DOB;
-				xctl = m_ctlArray[m_mode][id];
-				assert(nullptr != xctl);
-				dx = gap;
-				dy += (32 + gap);
+				B += (32 + gap);
 				xctl->setPosition(dx, dy);
 
 				id = XWIN3_FRIEND_LABEL_DOB;
 				xctl = m_ctlArray[m_mode][id];
 				assert(nullptr != xctl);
-				dx = gap + 32 + gap;
-				dy += 2;
-				xctl->setPosition(dx, dy);
-
-				id = XWIN3_FRIEND_BUTTON_SEX;
-				xctl = m_ctlArray[m_mode][id];
-				assert(nullptr != xctl);
-				dx = gap;
-				dy += (32 + gap);
+				sh = xctl->getHeight();
+				offset = (32 - sh) >> 1;
+				dy = B + offset;
+				B += (32 + gap);
 				xctl->setPosition(dx, dy);
 
 				id = XWIN3_FRIEND_LABEL_SEX;
 				xctl = m_ctlArray[m_mode][id];
 				assert(nullptr != xctl);
-				dx = gap + 32 + gap;
-				dy += 2;
-				xctl->setPosition(dx, dy);
-
-				id = XWIN3_FRIEND_BUTTON_AREA;
-				xctl = m_ctlArray[m_mode][id];
-				assert(nullptr != xctl);
-				dx = gap;
-				dy += (32 + gap);
+				sh = xctl->getHeight();
+				offset = (32 - sh) >> 1;
+				dy = B + offset;
+				B += (32 + gap);
 				xctl->setPosition(dx, dy);
 
 				id = XWIN3_FRIEND_LABEL_AREA;
 				xctl = m_ctlArray[m_mode][id];
 				assert(nullptr != xctl);
-				dx = gap + 32 + gap;
-				dy += 2;
-				xctl->setPosition(dx, dy);
-
-				id = XWIN3_FRIEND_BUTTON_SOURCE;
-				xctl = m_ctlArray[m_mode][id];
-				assert(nullptr != xctl);
-				dx = gap;
-				dy += (32 + gap);
+				sh = xctl->getHeight();
+				offset = (32 - sh) >> 1;
+				dy = B + offset;
+				B += (32 + gap);
 				xctl->setPosition(dx, dy);
 
 				id = XWIN3_FRIEND_LABEL_SOURCE;
 				xctl = m_ctlArray[m_mode][id];
 				assert(nullptr != xctl);
-				dx = gap + 32 + gap;
-				dy += 2;
+				sh = xctl->getHeight();
+				offset = (32 - sh) >> 1;
+				dy = B + offset;
 				xctl->setPosition(dx, dy);
 				break;
 			case WIN3_MODE_SETTING:
@@ -447,10 +405,10 @@ public:
 		{
 			XLabel* lb = new(mem)XLabel;
 			assert(nullptr != lb);
-			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_GROUPNAME);
+			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_MAINTEXT);
 			assert(pTextFormat);
-			lb->Init(((mode << 8) | id), "W3NAME", g_pDWriteFactory, pTextFormat);
-			lb->setText((U16*)L"X", 1);
+			lb->Init(((mode << 8) | id), "W3LDob", g_pDWriteFactory, pTextFormat);
+			lb->setText((U16*)txt_DOB_Unkown, 4);
 			m_ctlArray[mode][id] = lb;
 		}
 		else return;
@@ -481,7 +439,7 @@ public:
 			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_MAINTEXT);
 			assert(pTextFormat);
 			lb->Init(((mode << 8) | id), "W3NAME", g_pDWriteFactory, pTextFormat);
-			lb->setText((U16*)L"X", 1);
+			lb->setText((U16*)txt_Sex_Unkown, 4);
 			m_ctlArray[mode][id] = lb;
 		}
 		else return;
@@ -606,6 +564,20 @@ public:
 		m_friend = people;
 		wt_Raw2HexStringW(people->pubkey, PUBLIC_KEY_SIZE, hexPK, nullptr);
 
+		mode = WIN3_MODE_TALK;
+		id = XWIN3_TALK_LABEL_PUBLICKEY;
+		lb = (XLabel*)m_ctlArray[mode][id];
+		assert(nullptr != lb);
+		lb->setText((U16*)hexPK, 66);
+
+		if (people->name_length > 0)
+		{
+			id = XWIN3_TALK_LABEL_NAME;
+			lb = (XLabel*)m_ctlArray[mode][id];
+			assert(nullptr != lb);
+			lb->setText((U16*)people->name, people->name_length);
+		}
+
 		mode = WIN3_MODE_FRIEND;
 		if (people->icon128)
 		{
@@ -645,12 +617,20 @@ public:
 			lb->setText((U16*)people->area, people->area_length);
 		}
 
+		if (people->from_length > 0)
+		{
+			id = XWIN3_FRIEND_LABEL_SOURCE;
+			lb = (XLabel*)m_ctlArray[mode][id];
+			assert(lb);
+			lb->setText((U16*)people->from, people->from_length);
+		}
+
 		id = XWIN3_FRIEND_LABEL_PUBKEY;
 		lb = (XLabel*)m_ctlArray[mode][id];
 		assert(lb);
 		lb->setText((U16*)hexPK, 66);
 
-		if (m_mode == WIN3_MODE_FRIEND)
+		if (m_mode == WIN3_MODE_FRIEND || m_mode == WIN3_MODE_TALK)
 		{
 			UpdateControlPosition();
 			InvalidateScreen();
@@ -658,6 +638,24 @@ public:
 		}
 		return r;
 	}
+
+	int Do_DUI_PAINT(U32 uMsg, U64 wParam, U64 lParam, void* lpData = nullptr)
+	{
+		if (WIN3_MODE_FRIEND == m_mode)
+		{
+			int sw, sh, gap = 10; // pixel
+			int w = m_area.right - m_area.left;
+			int h = m_area.bottom - m_area.top;
+			XControl* xctl;
+			xctl = xctl = m_ctlArray[m_mode][XWIN3_BITMAP_FRIEND_ICON];
+			sw = xctl->getWidth();
+			sh = xctl->getHeight();
+			DUI_ScreenFillRect(m_screen, w, h, 0xFFDDDDDD, w - gap - gap, 1, gap, gap + sw + gap);
+		}
+
+		return 0;
+	}
+
 };
 
 #endif  /* __DUI_WINDOW3_H__ */

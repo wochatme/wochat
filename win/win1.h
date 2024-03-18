@@ -8,11 +8,6 @@ static const wchar_t txtWin1DT[] = { 0x521b,0x5efa,0x65f6,0x95f4,0xff1a,0 };
 static const wchar_t txtWin1TBD[] = 
 { 0x672c,0x529f,0x80fd,0x6b63,0x5728,0x5f00,0x53d1,0x4e2d,0xff0c,0x8bf7,0x8010,0x5fc3,0x7b49,0x5f85,0xff01,0x003a,0x002d,0x0029,0 };
 
-static const U16 txtWin1_DOB[]    = { 0x751f,0x65e5,0x672a,0x77e5,0 };
-static const U16 txtWin1_Male[]   = { 0x7537,0 };
-static const U16 txtWin1_Female[] = { 0x5973,0 };
-static const U16 txtWin1_Unkown[] = { 0x62d2,0x7edd,0x56de,0x7b54,0 };
-
 #define WIN1_MODE_TALK		DUI_MODE0
 #define WIN1_MODE_ME		DUI_MODE1
 #define WIN1_MODE_FRIEND	DUI_MODE2
@@ -62,9 +57,9 @@ public:
 		mode = WIN1_MODE_FRIEND;
 		w = 27; h = 27;
 		id = XWIN1_BITMAP_FRIEND_SEARCHN; bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpSerachN; bmp->w = w; bmp->h = h;
-		id = XWIN1_BITMAP_FRIEND_SEARCHN; bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpSerachH; bmp->w = w; bmp->h = h;
-		id = XWIN1_BITMAP_FRIEND_SEARCHN; bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpSerachP; bmp->w = w; bmp->h = h;
-		id = XWIN1_BITMAP_FRIEND_SEARCHN; bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpSerachP; bmp->w = w; bmp->h = h;
+		id = XWIN1_BITMAP_FRIEND_SEARCHH; bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpSerachH; bmp->w = w; bmp->h = h;
+		id = XWIN1_BITMAP_FRIEND_SEARCHP; bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpSerachP; bmp->w = w; bmp->h = h;
+		id = XWIN1_BITMAP_FRIEND_SEARCHA; bmp = &(m_bmpArray[mode][id]); bmp->id = id; bmp->data = (U32*)xbmpSerachP; bmp->w = w; bmp->h = h;
 	}
 
 	void InitControl()
@@ -170,7 +165,7 @@ public:
 			U16 hexPK[67] = { 0 };
 			XLabel* lb = new(mem)XLabel;
 			assert(nullptr != lb);
-			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_OTHER1);
+			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_ENGLISHBIG);
 			assert(pTextFormat);
 			lb->Init(((mode << 8) | id), "W1PKValue", g_pDWriteFactory, pTextFormat);
 			assert(g_myInfo);
@@ -187,7 +182,7 @@ public:
 		{
 			XLabel* lb = new(mem)XLabel;
 			assert(nullptr != lb);
-			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_OTHER1);
+			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_CHINESEBIG);
 			assert(pTextFormat);
 			lb->Init(((mode << 8) | id), "W1LBLMotto", g_pDWriteFactory, pTextFormat);
 			lb->setText((U16*)g_myInfo->motto, g_myInfo->motto_length);
@@ -218,10 +213,10 @@ public:
 		{
 			XLabel* lb = new(mem)XLabel;
 			assert(nullptr != lb);
-			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_OTHER1);
+			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_CHINESEBIG);
 			assert(pTextFormat);
 			lb->Init(((mode << 8) | id), "W1DOB", g_pDWriteFactory, pTextFormat);
-			lb->setText((U16*)txtWin1_DOB, 4);
+			lb->setText((U16*)txt_DOB_Unkown, 4);
 			m_ctlArray[mode][id] = lb;
 		}
 		else return;
@@ -249,15 +244,15 @@ public:
 		{
 			XLabel* lb = new(mem)XLabel;
 			assert(nullptr != lb);
-			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_OTHER1);
+			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_CHINESEBIG);
 			assert(pTextFormat);
 			lb->Init(((mode << 8) | id), "W1Sex", g_pDWriteFactory, pTextFormat);
 			
 			if(g_myInfo->sex == WT_MALE)
-				lb->setText((U16*)txtWin1_Male, 1);
+				lb->setText((U16*)txt_Sex_Male, 1);
 			else if (g_myInfo->sex == WT_FEMALE)
-				lb->setText((U16*)txtWin1_Female, 1);
-			else lb->setText((U16*)txtWin1_Unkown, 4);
+				lb->setText((U16*)txt_Sex_Female, 1);
+			else lb->setText((U16*)txt_Sex_Unkown, 4);
 
 			m_ctlArray[mode][id] = lb;
 		}
@@ -286,7 +281,7 @@ public:
 		{
 			XLabel* lb = new(mem)XLabel;
 			assert(nullptr != lb);
-			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_OTHER1);
+			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_CHINESEBIG);
 			assert(pTextFormat);
 			lb->Init(((mode << 8) | id), "W1PKValue", g_pDWriteFactory, pTextFormat);
 			lb->setText((U16*)g_myInfo->area, g_myInfo->area_length);
@@ -336,9 +331,9 @@ public:
 			assert(nullptr != button);
 			button->Init(((mode << 8) | id), "W1BTNSEARCH");
 			XBitmap* bmpN = &(m_bmpArray[mode][XWIN1_BITMAP_FRIEND_SEARCHN]);
-			XBitmap* bmpH = &(m_bmpArray[mode][XWIN1_BITMAP_FRIEND_SEARCHN]);
-			XBitmap* bmpP = &(m_bmpArray[mode][XWIN1_BITMAP_FRIEND_SEARCHN]);
-			XBitmap* bmpA = &(m_bmpArray[mode][XWIN1_BITMAP_FRIEND_SEARCHN]);
+			XBitmap* bmpH = &(m_bmpArray[mode][XWIN1_BITMAP_FRIEND_SEARCHH]);
+			XBitmap* bmpP = &(m_bmpArray[mode][XWIN1_BITMAP_FRIEND_SEARCHP]);
+			XBitmap* bmpA = &(m_bmpArray[mode][XWIN1_BITMAP_FRIEND_SEARCHA]);
 			button->setBitmap(bmpN, bmpH, bmpP, bmpA);
 			button->setRoundColor(m_backgroundColor, m_backgroundColor);
 			m_ctlArray[mode][id] = button;
@@ -357,7 +352,7 @@ public:
 		{
 			XLabel* lb = new(mem)XLabel;
 			assert(nullptr != lb);
-			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_OTHER2);
+			IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_CHINESEBIG);
 			assert(pTextFormat);
 			lb->Init(((mode << 8) | id), "W1PKValue", g_pDWriteFactory, pTextFormat);
 			lb->setText((U16*)txtWin1TBD, wcslen(txtWin1TBD));
@@ -459,56 +454,58 @@ public:
 			sw = xctl->getWidth();
 			sh = xctl->getHeight();
 			dx = gap;
-			dy = T; // +(gap >> 1);
-			xctl->setPosition(dx, dy);
-
-			id = XWIN1_ME_LABEL_PUBLICKEY;
-			xctl = m_ctlArray[m_mode][id];
-			assert(nullptr != xctl);
-			dx = dx + sw + gap;
-			dy = dy + gap - 2;
+			dy = T; 
 			xctl->setPosition(dx, dy);
 
 			id = XWIN1_ME_BUTTON_DOB;
 			xctl = m_ctlArray[m_mode][id];
 			assert(nullptr != xctl);
-			dx = gap;
-			dy = dy + gap*4;
-			xctl->setPosition(dx, dy);
-
-			id = XWIN1_ME_LABEL_DOB;
-			xctl = m_ctlArray[m_mode][id];
-			assert(nullptr != xctl);
-			dx = dx + sw + gap;
-			dy = dy + gap - 2;
+			dy += (sh + gap);
 			xctl->setPosition(dx, dy);
 
 			id = XWIN1_ME_BUTTON_SEX;
 			xctl = m_ctlArray[m_mode][id];
 			assert(nullptr != xctl);
-			dx = gap;
-			dy = dy + gap*4;
-			xctl->setPosition(dx, dy);
-
-			id = XWIN1_ME_LABEL_SEX;
-			xctl = m_ctlArray[m_mode][id];
-			assert(nullptr != xctl);
-			dx = dx + sw + gap;
-			dy = dy + gap;
+			dy += (sh + gap);
 			xctl->setPosition(dx, dy);
 
 			id = XWIN1_ME_BUTTON_AREA;
 			xctl = m_ctlArray[m_mode][id];
 			assert(nullptr != xctl);
-			dx = gap;
-			dy = dy + gap * 4;
+			dy += (sh + gap);
+			xctl->setPosition(dx, dy);
+
+			id = XWIN1_ME_LABEL_PUBLICKEY;
+			xctl = m_ctlArray[m_mode][id];
+			assert(nullptr != xctl);
+			sh = xctl->getHeight();
+			dx = gap + sw + gap;
+			offset = (32 - sh) >> 1;
+			dy = T + offset;
+			T += (32 + gap);
+			xctl->setPosition(dx, dy);
+
+			id = XWIN1_ME_LABEL_DOB;
+			xctl = m_ctlArray[m_mode][id];
+			assert(nullptr != xctl);
+			offset = (32 - sh) >> 1;
+			dy = T + offset;
+			T += (32 + gap);
+			xctl->setPosition(dx, dy);
+
+			id = XWIN1_ME_LABEL_SEX;
+			xctl = m_ctlArray[m_mode][id];
+			assert(nullptr != xctl);
+			offset = (32 - sh) >> 1;
+			dy = T + offset;
+			T += (32 + gap);
 			xctl->setPosition(dx, dy);
 
 			id = XWIN1_ME_LABEL_AREA;
 			xctl = m_ctlArray[m_mode][id];
 			assert(nullptr != xctl);
-			dx = dx + sw + gap;
-			dy = dy + gap;
+			offset = (32 - sh) >> 1;
+			dy = T + offset;
 			xctl->setPosition(dx, dy);
 			break;
 		case WIN1_MODE_FRIEND:
@@ -555,7 +552,7 @@ public:
 			xctl = xctl = m_ctlArray[m_mode][XWIN1_ME_BUTTON_MYICON];
 			sw = xctl->getWidth();
 			sh = xctl->getHeight();
-			DUI_ScreenFillRect(m_screen, w, h, 0xFF000000, w - gap - gap, 1, gap, gap + sw + gap);
+			DUI_ScreenFillRect(m_screen, w, h, 0xFFDDDDDD, w - gap - gap, 1, gap, gap + sw + gap);
 		}
 
 		return 0; 
@@ -587,7 +584,6 @@ public:
 		/* Display the Open dialog box. */
 		if (GetOpenFileName(&ofn) == TRUE)
 		{
-#if 0
 			int fd = 0;
 			if (_wsopen_s(&fd, path, _O_RDONLY | _O_BINARY, _SH_DENYWR, 0) == 0)
 			{
@@ -609,14 +605,13 @@ public:
 							assert(g_myInfo->icon128);
 							if (0 == (g_myInfo->property & WT_MYINFO_LARGEICON_ALLOC))
 							{
-								g_myInfo->icon128 = (U32*)wt_palloc(g_topMemPool, WT_LARGE_ICON_SIZE);
+								g_myInfo->icon128 = (U32*)wt_palloc(g_myInfo->ctx, WT_LARGE_ICON_SIZE);
 								if (g_myInfo->icon128)
 									g_myInfo->property |= WT_MYINFO_LARGEICON_ALLOC;
 							}
 							if (g_myInfo->icon128)
 							{
-								int i, rc;
-								sqlite3* db;
+								int i;
 								U16 lineByte = (U16)(ih->biSizeImage / ih->biHeight);
 								U8 pixelBytes = (U8)(ih->biBitCount >> 3);
 								U8* p = bmpbuf + sizeof(WT_BITMAPFILEHEADER) + sizeof(WT_BITMAPINFOHEADER);
@@ -626,62 +621,16 @@ public:
 								{
 									for (i = 0; i < ih->biWidth * pixelBytes; i += pixelBytes)
 									{
-										*b++ = q[i+2]; *b++ = q[i+1]; *b++ = q[i]; *b++ = 0xFF;
+										*b++ = q[i + 2]; *b++ = q[i + 1]; *b++ = q[i]; *b++ = 0xFF;
 									}
 									q -= lineByte;
 								}
+								wt_Resize128To32Bmp(g_myInfo->icon128, g_myInfo->icon32);
 								XBitmap* bmp = &(m_bmpArray[WIN1_MODE_ME][XWIN1_BITMAP_ME_ICON]);
 								bmp->data = (U32*)g_myInfo->icon128;
 								r++;
 								m_status |= DUI_STATUS_NEEDRAW;  // need to redraw this virtual window
 								InvalidateDUIWindow();           // set the gloabl redraw flag so next paint routine will do the paint work
-
-								rc = sqlite3_open16(g_DBPath, &db);
-								if (SQLITE_OK == rc)
-								{
-									sqlite3_stmt* stmt = NULL;
-									U8 hexSK[65] = { 0 };
-									wt_Raw2HexString(g_myInfo->skenc, SECRET_KEY_SIZE, hexSK, nullptr);
-									char sql[128] = { 0 };
-									sprintf_s((char*)sql, 128, "SELECT ub FROM k WHERE sk='%s'", hexSK);
-									rc = sqlite3_prepare_v2(db, (const char*)sql, -1, &stmt, NULL);
-									if (SQLITE_OK == rc)
-									{
-										U8* blob = nullptr;
-										rc = sqlite3_step(stmt);
-										if (SQLITE_ROW == rc)
-										{
-											U8* ub = (U8*)sqlite3_column_blob(stmt, 0);
-											U32 ub_len = (U32)sqlite3_column_bytes(stmt, 0);
-											if (ub_len == WT_BLOB_LEN)
-											{
-												blob = (U8*)malloc(WT_BLOB_LEN);
-												if (blob)
-													memcpy(blob, ub, ub_len - WT_LARGE_ICON_SIZE);
-											}
-										}
-										sqlite3_finalize(stmt);
-										if (blob)
-										{
-											memcpy(blob + WT_BLOB_LEN - WT_LARGE_ICON_SIZE, g_myInfo->icon128, WT_LARGE_ICON_SIZE);
-											wt_Resize128To32Bmp(g_myInfo->icon128, g_myInfo->icon32);
-
-											sprintf_s((char*)sql, 128, "UPDATE k SET ub=(?) WHERE sk='%s'", hexSK);
-											rc = sqlite3_prepare_v2(db, (const char*)sql, -1, &stmt, NULL);
-											if (SQLITE_OK == rc)
-											{
-												rc = sqlite3_bind_blob(stmt, 1, blob, WT_BLOB_LEN, SQLITE_TRANSIENT);
-												if (SQLITE_OK == rc)
-												{
-													rc = sqlite3_step(stmt);
-												}
-												sqlite3_finalize(stmt);
-											}
-											free(blob);
-										}
-									}
-									sqlite3_close(db);
-								}
 							}
 						}
 					}
@@ -689,7 +638,6 @@ public:
 				}
 				else _close(fd);
 			}
-#endif
 		}
 		return r;
 	}

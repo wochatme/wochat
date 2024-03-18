@@ -413,7 +413,7 @@ public:
 								mt->type     = 'T'; // this is the text message
 								mt->message  = (U8*)msgInput;
 								mt->msgLen   = length;
-								PostWindowMessage(WM_XWINDOWS04, WIN4_UPDATE_MESSAGE, (LPARAM)mt);
+								PostWindowMessage(m_message, WIN5_UPDATE_MESSAGE, (LPARAM)mt);
 								PushTaskIntoSendMessageQueue(mt); // send to the network
 								ret = 1;
 							}

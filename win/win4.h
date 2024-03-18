@@ -308,7 +308,7 @@ public:
 					}
 					else
 					{
-						icon = people->icon;
+						icon = people->icon32;
 						assert(icon);
 						dx = XWIN4_OFFSET;
 					}

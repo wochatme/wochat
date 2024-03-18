@@ -16,6 +16,40 @@
 #define MOSQUITTO_STATUS_NOHOPE			5
 #define MOSQUITTO_STATUS_DONE			6
 
+static ULONGLONG WT_TIME2000 = 0;
+/* get the time of 2000/01/01 00:00:00 */
+static bool Get2000UTCTime64()
+{
+	bool bRet = false;
+	FILETIME ft2000;
+	SYSTEMTIME st2000;
+	st2000.wYear = 2000;
+	st2000.wMonth = 1;
+	st2000.wDay = 1;
+	st2000.wHour = 0;
+	st2000.wMinute = 0;
+	st2000.wSecond = 0;
+	st2000.wMilliseconds = 0;
+	bRet = (bool)SystemTimeToFileTime(&st2000, &ft2000);
+	WT_TIME2000 = ((ULONGLONG)ft2000.dwHighDateTime << 32) + ft2000.dwLowDateTime;
+	assert(bRet);
+	return bRet;
+}
+
+/* get the seconds since 2000/01/01 00:00:00 */
+S64 GetCurrentUTCTime64()
+{
+	SYSTEMTIME st;
+	FILETIME ft;
+	GetSystemTime(&st);
+	SystemTimeToFileTime(&st, &ft);
+	ULONGLONG tm_now = ((ULONGLONG)ft.dwHighDateTime << 32) + ft.dwLowDateTime;
+	assert(WT_TIME2000 > 0);
+	S64 tm = (S64)((tm_now - WT_TIME2000) / 10000000); /* in second */
+	assert((tm & 0x8000000000000000) == 0);
+	return tm;
+}
+
 typedef struct MQTT_Conf
 {
 	bool isPub;
@@ -123,35 +157,6 @@ U32 PushTaskIntoSendMessageQueue(MessageTask* mt)
 }
 
 
-S64 GetCurrentUTCTime64()
-{
-	S64 tm;
-	SYSTEMTIME st;
-
-	GetSystemTime(&st);
-	U8* p = (U8*)&tm;
-#ifndef WT_IS_BIG_ENDIAN
-	p[7] = 0;
-	p[0] = st.wSecond;
-	p[1] = st.wMinute;
-	p[2] = st.wHour;
-	p[3] = st.wDay;
-	p[4] = st.wMonth;
-	U16* p16 = (U16*)(p + 5);
-	*p16 = st.wYear;
-#else
-	p[0] = 0;
-	p[7] = st.wSecond;
-	p[6] = st.wMinute;
-	p[5] = st.wHour;
-	p[4] = st.wDay;
-	p[3] = st.wMonth;
-	U16* p16 = (U16*)(p + 1);
-	*p16 = st.wYear;
-#endif
-	return tm;
-}
-
 // we have the 32-byte secret key, we want to generate the public key, return 0 if successful
 U32 GenPublicKeyFromSecretKey(U8* sk, U8* pk)
 {
@@ -185,21 +190,9 @@ U32 GenPublicKeyFromSecretKey(U8* sk, U8* pk)
 	return ret;
 }
 
-static void InitPeople(WTFriend* people)
-{
-	assert(people);
-	people->next = people->prev = nullptr;
-	people->chatgroup = nullptr;
-	people->name_length = 0;
-	people->motto_length = 0;
-	people->area_length = 0;
-	people->from_length = 0;
-	people->icon128 = 0;
-}
-
 static U32 LoadFriendList()
 {
-	assert(g_friendRoot == nullptr);
+	assert(g_myInfo->people == nullptr);
 
 	sqlite3* db;
 	int rc = sqlite3_open16(g_DBPath, &db);
@@ -221,7 +214,8 @@ static U32 LoadFriendList()
 			U8* sr;
 			U8* ub;
 			U8* si;
-			U32 ub_len, si_len, active;
+			U32 ub_len, active;
+			U8 slen, i;
 			WTFriend* p = nullptr;
 			WTFriend* q = nullptr;
 			bool found = false;
@@ -238,35 +232,52 @@ static U32 LoadFriendList()
 
 				if (ub_len == WT_BLOB_LEN)
 				{
-					p = (WTFriend*)wt_palloc(g_messageMemPool, sizeof(WTFriend));
+					p = (WTFriend*)wt_palloc0(g_myInfo->pool, sizeof(WTFriend));
 					if (p)
 					{
-						InitPeople(p);
-						PopluateFriendInfo(p, ub, ub_len);
-						// insert into the hash tab
-						found = false;
-						guy = (WTGuy*)hash_search(g_peopleHTAB, p->pubkey, HASH_ENTER, &found);
-						assert(guy);
-						if (!found)
+						p->icon32 = (U32*)wt_palloc(g_myInfo->pool, WT_SMALL_ICON_SIZE);
+						if (p->icon32)
 						{
-							guy->people = p;
+							slen = 0;
+							if (sr)
+							{
+								for (i = 0; i < WT_FROM_MAX_LEN; i++)
+								{
+									if (sr[i] == 0) break;
+									slen++;
+								}
+							}
+							PopluateFriendInfo(p, ub, ub_len, sr, slen);
+							// insert into the hash tab
+							found = false;
+							guy = (WTGuy*)hash_search((HTAB*)g_myInfo->lookuptable, p->pubkey, HASH_ENTER, &found);
+							assert(guy);
+							if (!found)
+							{
+								guy->people = p;
+							}
+							if (active)
+							{
+								g_myInfo->people_count++;
+								p->property = WT_FRIEND_PROP_ACITVE;
+								if (g_myInfo->people == nullptr)
+								{
+									g_myInfo->people = p;
+									q = p;
+								}
+								else
+								{
+									assert(q);
+									q->next = p;
+									p->prev = q;
+									q = p;
+								}
+							}
 						}
-						if (active)
+						else
 						{
-							g_friendTotal++;
-							p->property = WT_FRIEND_PROP_ACITVE;
-							if (g_friendRoot == nullptr)
-							{
-								g_friendRoot = p;
-								q = p;
-							}
-							else
-							{
-								assert(q);
-								q->next = p;
-								p->prev = q;
-								q = p;
-							}
+							wt_pfree(p);
+							p = nullptr;
 						}
 					}
 				}
@@ -280,14 +291,16 @@ static U32 LoadFriendList()
 
 static U32 LoadChatList()
 {
-	assert(g_chatgroupRoot == nullptr);
+	assert(g_myInfo->chatgroup == nullptr);
+	S64 tm_now = GetCurrentUTCTime64();
+	S64 tm_start = tm_now - g_messageSeconds;
 #if 10
-	g_chatgroupRoot = (WTChatGroup*)wt_palloc0(g_messageMemPool, sizeof(WTChatGroup));
-	if (g_chatgroupRoot)
+	g_myInfo->chatgroup = (WTChatGroup*)wt_palloc0(g_myInfo->pool, sizeof(WTChatGroup));
+	if (g_myInfo->chatgroup)
 	{
-		g_chatgroupRoot->people = g_friendRoot;
-		g_friendRoot->chatgroup = g_chatgroupRoot;
-		g_chatgroupTotal = 1;
+		g_myInfo->chatgroup->people = g_myInfo->people;
+		g_myInfo->people->chatgroup = g_myInfo->chatgroup;
+		g_myInfo->chatgroup_count = 1;
 	}
 #endif
 #if 0
@@ -679,7 +692,6 @@ static U32 HandleQueryMessage(HWND hWndUI, MemoryPoolContext mempool, U8* primar
 
 static U32 Handle_F_Message(HWND hWndUI, MemoryPoolContext mempool, U8* pubkey, U8* message, U32 length)
 {
-#if 0
 	MessageTask* task = (MessageTask*)wt_palloc0(mempool, sizeof(MessageTask));
 	if (task)
 	{
@@ -700,7 +712,7 @@ static U32 Handle_F_Message(HWND hWndUI, MemoryPoolContext mempool, U8* pubkey, 
 			memcpy(task->pubkey, pubkey, PUBLIC_KEY_SIZE);
 			task->type = 'F';
 
-			EnterCriticalSection(&g_csSQLiteDB);
+			//EnterCriticalSection(&g_csSQLiteDB);
 			int rc = sqlite3_open16(g_DBPath, &db);
 			if (SQLITE_OK == rc)
 			{
@@ -721,51 +733,31 @@ static U32 Handle_F_Message(HWND hWndUI, MemoryPoolContext mempool, U8* pubkey, 
 				// if we cannot find this record in table p, which means the user only want to get this user's
 				// information, but does not want to add him/her as his friend, so we put active = 0
 				if (count == 0)
-					sprintf_s((char*)sql, 256, "INSERT INTO p(at,me,pk,ub,si) VALUES(0,'%s','%s',(?),(?))", hexSK, hexPK);
+					sprintf_s((char*)sql, 256, "INSERT INTO p(at,me,pk,ub) VALUES(0,'%s','%s',(?))", hexSK, hexPK);
 				else
-					sprintf_s((char*)sql, 256, "UPDATE p SET ub=(?),si=(?) WHERE me='%s' AND pk='%s'", hexSK, hexPK);
+					sprintf_s((char*)sql, 256, "UPDATE p SET ub=(?) WHERE me='%s' AND pk='%s'", hexSK, hexPK);
 
 				rc = sqlite3_prepare_v2(db, (const char*)sql, -1, &stmt, NULL);
 				if (SQLITE_OK == rc)
 				{
-					U8 result = 0;
-					bool isMalloced = false;
-					U8* icon = (U8*)malloc(WT_SMALL_ICON_SIZE);
-					if (icon)
-					{
-						U32* largeIcon =
-							(U32*)(message + 4 + PUBLIC_KEY_SIZE + 3 + 1 + 4 + WT_NAME_MAX_LEN + WT_MOTTO_MAX_LEN + WT_AREA_MAX_LEN);
-						wt_Resize128To32Bmp(largeIcon, (U32*)icon);
-						isMalloced = true;
-					}
-					else icon = (U8*)GetUIBitmap(WT_UI_BMP_MYMSALLICON);
 					rc = sqlite3_bind_blob(stmt, 1, message, length, SQLITE_TRANSIENT);
-					if (SQLITE_OK != rc) result++;
-					rc = sqlite3_bind_blob(stmt, 2, icon, WT_SMALL_ICON_SIZE, SQLITE_TRANSIENT);
-					if (SQLITE_OK != rc) result++;
-					if (result == 0)
+					if (SQLITE_OK == rc)
 						rc = sqlite3_step(stmt);
 					sqlite3_finalize(stmt);
-
-					if (isMalloced)
-						free(icon);
 				}
 				sqlite3_close(db);
 			}
-			LeaveCriticalSection(&g_csSQLiteDB);
+			//LeaveCriticalSection(&g_csSQLiteDB);
 
 			PushTaskIntoReceiveMessageQueue(task);
-			//::PostMessage(hWndUI, WM_MQTT_SUBMESSAGE, 0, 0); // tell the UI thread that a new message is received
 		}
 		else wt_pfree(task);
 	}
-#endif
 	return WT_OK;
 }
 
 static U32 Handle_T_Message(HWND hWndUI, MemoryPoolContext mempool, U8* pubkey, U8* message, U32 length)
 {
-#if 0
 	assert(length > 4);
 	if (wt_UTF8ToUTF16(message + 4, length - 4, nullptr, nullptr) == WT_OK)
 	{
@@ -780,12 +772,10 @@ static U32 Handle_T_Message(HWND hWndUI, MemoryPoolContext mempool, U8* pubkey, 
 				memcpy(task->pubkey, pubkey, PUBLIC_KEY_SIZE);
 				task->type = 'T';
 				PushTaskIntoReceiveMessageQueue(task);
-				//::PostMessage(hWndUI, WM_MQTT_SUBMESSAGE, 0, 0); // tell the UI thread that a new message is received
 			}
 			else wt_pfree(task);
 		}
 	}
-#endif
 	return WT_OK;
 }
 
@@ -933,6 +923,9 @@ static void sub_message_callback(struct mosquitto* mosq, void* obj, const struct
 	case '@':
 		HandleCommonMessage(hWndUI, pool, Kp, pkSender, msssage_b64, length_b64);
 		break;
+	case '*':
+		HandleCommonMessage(hWndUI, pool, Kp, pkSender, msssage_b64, length_b64);
+		break;
 	case '#':
 		if (length_b64 == 89 + 140)
 		{
@@ -949,7 +942,7 @@ DWORD WINAPI MQTTSubThread(LPVOID lpData)
 	MemoryPoolContext mempool;
 	HWND hWndUI = (HWND)(lpData);
 	ATLASSERT(::IsWindow(hWndUI));
-
+	ATLASSERT(g_myInfo);
 	InterlockedIncrement(&g_threadCount);
 
 	mempool = wt_mempool_create("MQTT_SUB_POOL", 0, DUI_ALLOCSET_DEFAULT_INITSIZE, DUI_ALLOCSET_DEFAULT_MAXSIZE);
@@ -964,7 +957,7 @@ DWORD WINAPI MQTTSubThread(LPVOID lpData)
 		wt_Raw2HexString(g_myInfo->pubkey, PUBLIC_KEY_SIZE, (U8*)topic, nullptr);
 		MQTTConfAddSubTopic(topic);
 
-		mosq = mosquitto_new((const char*)g_MQTTSubClientId, false, &confSub);
+		mosq = mosquitto_new((const char*)g_myInfo->sub_clientid, false, &confSub);
 		if (mosq)
 		{
 			mosquitto_connect_v5_callback_set(mosq, sub_connect_callback);
@@ -1348,7 +1341,7 @@ DWORD WINAPI MQTTPubThread(LPVOID lpData)
 			if (task) // we have the tasks in the queue that need to send out.
 			{
 				confPub.opaque = task;
-				mosq = mosquitto_new((const char*)g_MQTTPubClientId, false, &confPub);
+				mosq = mosquitto_new((const char*)g_myInfo->pub_clientid, false, &confPub);
 				if (mosq)
 				{
 					mosquitto_connect_v5_callback_set(mosq, pub_connect_callback);
@@ -1382,23 +1375,26 @@ DWORD WINAPI MQTTPubThread(LPVOID lpData)
     return 0;
 }
 
-static const U8 txtUtf8Name[] = { 0xE9,0xBB,0x84,0xE5,0xA4,0xA7,0xE4,0xBB,0x99,0 };
-static const U8 txtUf8Motto[] = { 0xE4,0xB8,0x80,0xE5,0x88,0x87,0xE7,0x9A,0x86,0xE6,0x9C,0x89,0xE5,0x8F,0xAF,0xE8,0x83,0xBD,0 };
-static const U8 txtUtf8Area[] = { 0xE5,0xAE,0x87,0xE5,0xAE,0x99,0xE8,0xB5,0xB7,0xE7,0x82,0xB9,0 };
+static const U8 txtUtf8Name[]   = { 0xE9,0xBB,0x84,0xE5,0xA4,0xA7,0xE4,0xBB,0x99,0 };
+static const U8 txtUf8Motto[]   = { 0xE4,0xB8,0x80,0xE5,0x88,0x87,0xE7,0x9A,0x86,0xE6,0x9C,0x89,0xE5,0x8F,0xAF,0xE8,0x83,0xBD,0 };
+static const U8 txtUtf8Area[]   = { 0xE5,0xAE,0x87,0xE5,0xAE,0x99,0xE8,0xB5,0xB7,0xE7,0x82,0xB9,0 };
 static const U8 txtUtf8Source[] = { 0xE7,0xB3,0xBB,0xE7,0xBB,0x9F,0xE8,0x87,0xAA,0xE5,0xB8,0xA6,0 };
 
 U32 GetAccountNumber(int* total)
 {
 	U32 ret = WT_FAIL;
 	int rc;
-	bool bAvailabe = false;
 	sqlite3* db;
 	sqlite3_stmt* stmt = NULL;
-
-	assert(total);
-
 	WIN32_FILE_ATTRIBUTE_DATA fileInfo;
 
+	bool bAvailabe = Get2000UTCTime64();
+	assert(bAvailabe);
+	assert(total);
+	*total = 0;
+	g_messageId = 0;
+
+	bAvailabe = false;
 	if (GetFileAttributesExW(g_DBPath, GetFileExInfoStandard, &fileInfo) != 0)
 	{
 		if (!(fileInfo.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
@@ -1417,10 +1413,6 @@ U32 GetAccountNumber(int* total)
 		U32 bloblen;
 		U8* blobuf;
 		char sql[SQL_STMT_MAX_LEN + 1] = { 0 };
-
-		*total = 0;
-		g_messageId = 0;
-
 		/* create the table at first */
 		rc = sqlite3_prepare_v2(db,
 			(const char*)"CREATE TABLE c(id INTEGER PRIMARY KEY,tp INTEGER NOT NULL,i0 INTEGER,i1 INTEGER,tx TEXT,bb BLOB)",
@@ -1447,7 +1439,7 @@ U32 GetAccountNumber(int* total)
 		sqlite3_finalize(stmt);
 
 		rc = sqlite3_prepare_v2(db,
-			(const char*)"CREATE TABLE p(id INTEGER PRIMARY KEY AUTOINCREMENT,dt INTEGER,at INTEGER DEFAULT 1,me CHAR(64) NOT NULL,pk CHAR(66) NOT NULL,sr TEXT,ub BLOB)",
+			(const char*)"CREATE TABLE p(id INTEGER PRIMARY KEY AUTOINCREMENT,dt INTEGER,at INTEGER DEFAULT 1,me CHAR(64) NOT NULL,pk CHAR(66) NOT NULL,nm TEXT,sr TEXT,ub BLOB)",
 			-1, &stmt, NULL);
 		if (SQLITE_OK != rc) goto Exit_CheckWoChatDatabase;
 		rc = sqlite3_step(stmt);
@@ -1470,9 +1462,17 @@ U32 GetAccountNumber(int* total)
 		}
 		sqlite3_finalize(stmt);
 
-		rc = sqlite3_prepare_v2(db,
-			(const char*)"CREATE TABLE q(id INTEGER PRIMARY KEY AUTOINCREMENT,dt INTEGER,tx TEXT)",
-			-1, &stmt, NULL);
+		rc = sqlite3_prepare_v2(db,	(const char*)"CREATE INDEX idxtp ON m(tp);", -1, &stmt, NULL);
+		if (SQLITE_OK != rc) goto Exit_CheckWoChatDatabase;
+		rc = sqlite3_step(stmt);
+		if (SQLITE_DONE != rc)
+		{
+			sqlite3_finalize(stmt);
+			goto Exit_CheckWoChatDatabase;
+		}
+		sqlite3_finalize(stmt);
+
+		rc = sqlite3_prepare_v2(db,(const char*)"CREATE TABLE q(id INTEGER PRIMARY KEY AUTOINCREMENT,dt INTEGER,tx TEXT)",-1, &stmt, NULL);
 		if (SQLITE_OK != rc) goto Exit_CheckWoChatDatabase;
 		rc = sqlite3_step(stmt);
 		if (SQLITE_DONE != rc)
@@ -1527,15 +1527,13 @@ U32 GetAccountNumber(int* total)
 		}
 		sqlite3_finalize(stmt);
 #endif
+
 		// insert the Robot's public key
-		bloblen = WT_BLOB_LEN;
-		blobuf = (U8*)malloc(bloblen);
+		blobuf = (U8*)malloc(WT_BLOB_LEN);
 		if (blobuf)
 		{
 			int i;
-			U8* imgRobotLarge = nullptr;
-			U8* imgRobotSmall = nullptr;
-			U32 crc32, wS = 0, hS = 0, wL = 0, hL = 0;
+			U32 crc32, width, height;
 
 			U8* q = GetRobotPublicKey();
 			assert(q);
@@ -1559,21 +1557,23 @@ U32 GetAccountNumber(int* total)
 
 			/* now point to the small icon field */
 			p = blobuf + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN;
-			imgRobotSmall = (U8*)GetUIBitmap(WT_UI_BMP_AIMSALLICON, &wS, &hS);
-			assert(imgRobotSmall);
-			assert(wS * hS * 4 == WT_SMALL_ICON_SIZE);
-			for (i = 0; i < WT_SMALL_ICON_SIZE; i++) p[i] = imgRobotSmall[i];
+			width = height = 0;
+			U8* icon32 = (U8*)GetUIBitmap(WT_UI_BMP_AISMALLICON, &width, &height);
+			assert(icon32);
+			assert(width * height * 4 == WT_SMALL_ICON_SIZE);
+			for (i = 0; i < WT_SMALL_ICON_SIZE; i++) p[i] = icon32[i];
 
 			/* now point to the large icon field */
 			p = blobuf + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN + WT_SMALL_ICON_SIZE;
-			imgRobotLarge = (U8*)GetUIBitmap(WT_UI_BMP_AILARGEICON, &wL, &hL);
-			assert(imgRobotLarge);
-			assert(wL * hL * 4 == WT_LARGE_ICON_SIZE);
-			for (i = 0; i < WT_LARGE_ICON_SIZE; i++) p[i] = imgRobotLarge[i];
+			width = height = 0;
+			U8* icon128 = (U8*)GetUIBitmap(WT_UI_BMP_AILARGEICON, &width, &height);
+			assert(icon128);
+			assert(width * height * 4 == WT_LARGE_ICON_SIZE);
+			for (i = 0; i < WT_LARGE_ICON_SIZE; i++) p[i] = icon128[i];
 
-			crc32 = wt_GenCRC32(blobuf + 4 + PUBLIC_KEY_SIZE, bloblen - 4 - PUBLIC_KEY_SIZE);
+			crc32 = wt_GenCRC32(blobuf + 4 + PUBLIC_KEY_SIZE, WT_BLOB_LEN - 4 - PUBLIC_KEY_SIZE);
 
-			sprintf_s((char*)sql, SQL_STMT_MAX_LEN, "INSERT INTO p(me,pk,dt,sr,ub) VALUES('%s','%s',(?),(?),(?))","XXX", hexRobotPK);
+			sprintf_s((char*)sql, SQL_STMT_MAX_LEN, "INSERT INTO p(me,pk,dt,sr,ub) VALUES('%s','%s',(?),(?),(?))", "ROBOT PUBLIC KEY", hexRobotPK);
 			rc = sqlite3_prepare_v2(db, (const char*)sql, -1, &stmt, NULL);
 			if (SQLITE_OK == rc)
 			{
@@ -1583,7 +1583,7 @@ U32 GetAccountNumber(int* total)
 				if (SQLITE_OK != rc) result++;
 				rc = sqlite3_bind_text(stmt, 2, (const char*)txtUtf8Source, 12, SQLITE_TRANSIENT);
 				if (SQLITE_OK != rc) result++;
-				rc = sqlite3_bind_blob(stmt, 3, blobuf, bloblen, SQLITE_TRANSIENT);
+				rc = sqlite3_bind_blob(stmt, 3, blobuf, WT_BLOB_LEN, SQLITE_TRANSIENT);
 				if (SQLITE_OK != rc) result++;
 				if (result == 0)
 				{
@@ -1640,11 +1640,11 @@ void MosquittoTerm()
 
 MessageTask* CreateMyInfoMessage()
 {
-	MessageTask* mt = (MessageTask*)wt_palloc0(g_messageMemPool, sizeof(MessageTask));
+	MessageTask* mt = (MessageTask*)wt_palloc0(g_myInfo->pool, sizeof(MessageTask));
 	if (mt)
 	{
 		mt->msgLen = WT_BLOB_LEN;
-		mt->message = (U8*)wt_palloc0(g_messageMemPool, mt->msgLen);
+		mt->message = (U8*)wt_palloc0(g_myInfo->pool, mt->msgLen);
 		if (mt->message)
 		{
 			U32 i, utf8len = 0;
@@ -1702,7 +1702,7 @@ WTFriend* FindFriend(U8* pubkey)
 	bool found = false;
 	assert(pubkey);
 
-	WTGuy* guy = (WTGuy*)hash_search(g_peopleHTAB, pubkey, HASH_FIND, &found);
+	WTGuy* guy = (WTGuy*)hash_search((HTAB*)g_myInfo->lookuptable, pubkey, HASH_FIND, &found);
 	if (found)
 	{
 		assert(guy);
@@ -1711,7 +1711,7 @@ WTFriend* FindFriend(U8* pubkey)
 	return people;
 }
 
-void PopluateFriendInfo(WTFriend* p, U8* blob, U32 blen)
+void PopluateFriendInfo(WTFriend* p, U8* blob, U32 blen, U8* utf8Source, U8 slen)
 {
 	U8* s;
 	U8* robotPK;
@@ -1719,6 +1719,7 @@ void PopluateFriendInfo(WTFriend* p, U8* blob, U32 blen)
 	U32 i, length, utf16len, status;
 
 	assert(p);
+	assert(p->icon32);
 	assert(blob);
 	assert(blen == WT_BLOB_LEN);
 
@@ -1775,7 +1776,7 @@ void PopluateFriendInfo(WTFriend* p, U8* blob, U32 blen)
 		p->motto_length = utf16len;
 	}
 
-	memcpy(p->icon, icon32, WT_SMALL_ICON_SIZE);
+	memcpy(p->icon32, icon32, WT_SMALL_ICON_SIZE);
 
 	robotPK = GetRobotPublicKey();
 	if (memcmp(p->pubkey, robotPK, PUBLIC_KEY_SIZE) == 0)
@@ -1790,7 +1791,7 @@ void PopluateFriendInfo(WTFriend* p, U8* blob, U32 blen)
 	}
 	else
 	{
-		p->icon128 = (U32*)wt_palloc(g_messageMemPool, WT_LARGE_ICON_SIZE);
+		p->icon128 = (U32*)wt_palloc(g_myInfo->pool, WT_LARGE_ICON_SIZE);
 		if (p->icon128)
 		{
 			p->property |= WT_FRIEND_PROP_LARGEICON_ALLOC;
@@ -1798,15 +1799,26 @@ void PopluateFriendInfo(WTFriend* p, U8* blob, U32 blen)
 		}
 		else p->icon128 = img;
 	}
+
+	if (slen > 0 && utf8Source)
+	{
+		status = wt_UTF8ToUTF16(utf8Source, slen, nullptr, &utf16len);
+		if (WT_OK == status && utf16len < (WT_FROM_MAX_LEN >> 1))
+		{
+			status = wt_UTF8ToUTF16(utf8Source, slen, (U16*)p->from, nullptr);
+			assert(WT_OK == status);
+			p->from_length = utf16len;
+		}
+	}
 }
 
 U32 QueryFriendInformation(U8* pubkey)
 {
 	U32 ret = WT_FAIL;
-	MessageTask* task = (MessageTask*)wt_palloc0(g_messageMemPool, sizeof(MessageTask));
+	MessageTask* task = (MessageTask*)wt_palloc0(g_myInfo->pool, sizeof(MessageTask));
 	if (task)
 	{
-		task->message = (U8*)wt_palloc0(g_messageMemPool, PUBLIC_KEY_SIZE);
+		task->message = (U8*)wt_palloc0(g_myInfo->pool, PUBLIC_KEY_SIZE);
 		if (task->message)
 		{
 			int i;
@@ -1871,20 +1883,20 @@ U8* TryToAddNewFriend(U8 source, U8* pubkey)
 				for (i = 0; i < 12; i++) p[i] = defaultTextName[i];
 				p = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN; /* now point to the area field */
 				for (i = 0; i < 12; i++) p[i] = defaultTextArea[i];
-				p = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN; /* now point to the area field */
+				p = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN; /* now point to the motto field */
 				for (i = 0; i < 12; i++) p[i] = defaultTextMotto[i];
 				
 				/* now point to the small icon field */
 				p = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN;
-				U8* imgMeSmall = (U8*)GetUIBitmap(WT_UI_BMP_MYSMALLICON);
-				assert(imgMeSmall);
-				for (i = 0; i < WT_SMALL_ICON_SIZE; i++) p[i] = imgMeSmall[i];
+				U8* icon32 = (U8*)GetUIBitmap(WT_UI_BMP_MYSMALLICON);
+				assert(icon32);
+				for (i = 0; i < WT_SMALL_ICON_SIZE; i++) p[i] = icon32[i];
 
 				/* now point to the large icon field */
 				p = blob + 4 + PUBLIC_KEY_SIZE + 4 + WT_NAME_MAX_LEN + WT_AREA_MAX_LEN + WT_MOTTO_MAX_LEN + WT_SMALL_ICON_SIZE;
-				U8* imgMeLarge = (U8*)GetUIBitmap(WT_UI_BMP_MYLARGEICON);
-				assert(imgMeLarge);
-				for (i = 0; i < WT_LARGE_ICON_SIZE; i++) p[i] = imgMeLarge[i];
+				U8* icon128 = (U8*)GetUIBitmap(WT_UI_BMP_MYLARGEICON);
+				assert(icon128);
+				for (i = 0; i < WT_LARGE_ICON_SIZE; i++) p[i] = icon128[i];
 				
 				U32 crc32 = wt_GenCRC32(blob + 4 + PUBLIC_KEY_SIZE, WT_BLOB_LEN - 4 - PUBLIC_KEY_SIZE);
 				*((U32*)blob) = crc32;
@@ -1893,8 +1905,8 @@ U8* TryToAddNewFriend(U8 source, U8* pubkey)
 				rc = sqlite3_prepare_v2(db, (const char*)sql, -1, &stmt, NULL);
 				if (SQLITE_OK == rc)
 				{
-					U8* utf8Source;
 					U8 result = 0;
+					U8* utf8Source;
 					S64 dt = GetCurrentUTCTime64();
 					rc = sqlite3_bind_int64(stmt, 1, dt);
 					if (SQLITE_OK != rc) result++;
@@ -1952,7 +1964,7 @@ U32 SaveMyInformation()
 {
 	U32 ret = WT_FAIL;
 	U32 blen = WT_BLOB_LEN;
-	U8* blob = (U8*)wt_palloc(g_messageMemPool, WT_BLOB_LEN);
+	U8* blob = (U8*)wt_palloc(g_myInfo->pool, WT_BLOB_LEN);
 	if (blob)
 	{
 		sqlite3* db;
@@ -2032,7 +2044,7 @@ U32 SaveMyInformation()
 
 		if (WT_OK == ret) // my information has been saved to the database successfully. Now tell the server
 		{
-			MessageTask* mt = (MessageTask*)wt_palloc0(g_messageMemPool, sizeof(MessageTask));
+			MessageTask* mt = (MessageTask*)wt_palloc0(g_myInfo->pool, sizeof(MessageTask));
 			if (mt)
 			{
 				U8* pkRobot = GetRobotPublicKey();

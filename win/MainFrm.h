@@ -119,7 +119,8 @@ class CMainFrame :
 	ID2D1SolidColorBrush* m_pBkgBrush1 = nullptr;
 
 public:
-	DECLARE_FRAME_WND_CLASS(NULL, IDR_MAINFRAME)
+	/* DECLARE_FRAME_WND_CLASS(NULL, IDR_MAINFRAME) */
+	DECLARE_FRAME_WND_CLASS_EX(NULL, IDR_MAINFRAME,CS_DBLCLKS, COLOR_WINDOW) // to support double-click
 
 	CMainFrame()
 	{
@@ -175,13 +176,13 @@ public:
 		MESSAGE_HANDLER(WM_SIZE, OnSize)
 		MESSAGE_HANDLER(WM_SETCURSOR, OnSetCursor)
 		MESSAGE_HANDLER(WM_LOADPERCENTMESSAGE, OnLoading)
-		MESSAGE_HANDLER(WM_ALLOTHER_MESSAGE, OnOtherMessage)
 		MESSAGE_HANDLER(WM_XWINDOWS00, OnWin0Message)
 		MESSAGE_HANDLER(WM_XWINDOWS01, OnWin1Message)
 		MESSAGE_HANDLER(WM_XWINDOWS02, OnWin2Message)
 		MESSAGE_HANDLER(WM_XWINDOWS03, OnWin3Message)
 		MESSAGE_HANDLER(WM_XWINDOWS04, OnWin4Message)
 		MESSAGE_HANDLER(WM_XWINDOWS05, OnWin5Message)
+		MESSAGE_HANDLER(WM_ALLOTHER_MESSAGE, OnOtherMessage)
 		MESSAGE_HANDLER(WM_GETMINMAXINFO, OnGetMinMaxInfo)
 		MESSAGE_HANDLER(WM_CREATE, OnCreate)
 		MESSAGE_HANDLER(WM_DESTROY, OnDestroy)
@@ -248,6 +249,7 @@ public:
 	{
 		DWORD dwThreadID;
 		HANDLE hThread = nullptr;
+		wchar_t hexPK[67] = { 0 };
 		wchar_t title[128 + 1] = { 0 };
 		// register object for message filtering and idle updates
 		CMessageLoop* pLoop = _Module.GetMessageLoop();
@@ -267,7 +269,9 @@ public:
 		UINT_PTR id = SetTimer(XWIN_CARET_TIMER, 666);
 
 		//swprintf((wchar_t*)title, 256, L"WoChat - %s[%s]", (wchar_t*)g_myInfo->name, ng_strMyPubKey);
-		swprintf((wchar_t*)title, 128, L"WoChat - [%s]", GetMyPublicKeyString());
+		assert(g_myInfo);
+		wt_Raw2HexStringW(g_myInfo->pubkey, PUBLIC_KEY_SIZE, (wchar_t*)hexPK, nullptr);
+		swprintf((wchar_t*)title, 128, L"WoChat - [%s]", (wchar_t*)hexPK);
 		SetWindowTextW(title);
 
 		return 0;
@@ -699,12 +703,13 @@ public:
 				// this pubkey is not robot or myself
 				if (memcmp(pkRobot, pubkey, PUBLIC_KEY_SIZE) && memcmp(g_myInfo->pubkey, pubkey, PUBLIC_KEY_SIZE))
 				{
-					if (FindFriend(pubkey) == nullptr) // we cannot find this PK in our friend list
+					WTFriend* people = FindFriend(pubkey);
+					if (people == nullptr) // we cannot find this PK in our friend list
 					{
 						U8* blob = TryToAddNewFriend(WT_FRIEND_SOURCE_ADDMANUALLY, pubkey);
 						if (blob)
 						{
-							//status = m_win2.AddNewFriend(blob, WT_BLOB_LEN, icon);
+							status = m_win2.AddNewFriend(blob, WT_BLOB_LEN, (U8*)txtSourceManualAdd, 12);
 							free(blob);
 							QueryFriendInformation(pubkey);
 							if (WT_OK == status)
@@ -771,6 +776,7 @@ public:
 		{
 			if (wParam == 0)
 			{
+				U32 status;
 				U16 ctlId = (U16)lParam;
 				U16 mode = ctlId >> 8;
 				ctlId &= 0xFF;
@@ -799,6 +805,8 @@ public:
 							if (r)
 							{
 								m_win0.UpdateMyIcon();
+								status = SaveMyInformation();
+								ATLASSERT(status == WT_OK);
 								Invalidate();
 							}
 						}
@@ -812,7 +820,6 @@ public:
 							CEditMyInfoDlg dlg;
 							if (IDOK == dlg.DoModal())
 							{
-								U32 status;
 								int r = m_win1.RefreshMyInfomation();
 								status = SaveMyInformation();
 								ATLASSERT(status == WT_OK);
@@ -828,7 +835,8 @@ public:
 				case WIN1_MODE_FRIEND:
 					if (ctlId == XWIN1_FRIEND_BUTTON_SEARCH)
 					{
-						//DialogBox(g_hInstance, MAKEINTRESOURCE(IDD_SEARCHADD), m_hWnd, AddFriendDialogProc);
+						CAddFriendDlg dlg;
+						dlg.DoModal();
 					}
 					break;
 				case WIN1_MODE_TBD:
@@ -844,6 +852,37 @@ public:
 
 	LRESULT OnWin2Message(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
 	{
+		U16 mode = (U16)wParam;
+
+		switch (mode)
+		{
+		case WIN2_MODE_TALK:
+			{
+				WTChatGroup* cg = (WTChatGroup*)lParam;
+				if (cg)
+				{
+					m_mode = AppMode::ModeTalk;
+					DoTalkModeLayOut();
+					m_win3.SetChatGroup(cg);
+					m_win4.SetChatGroup(cg);
+					Invalidate();
+				}
+			}
+			break;
+		case WIN2_MODE_FRIEND:
+			{
+				WTFriend* people = (WTFriend*)lParam;
+				if (people)
+				{
+					int r = m_win3.UpdateFriendInformation(people);
+					if (r)
+						Invalidate();
+				}
+			}
+			break;
+		default:
+			break;
+		}
 		return 0;
 	}
 
@@ -877,11 +916,31 @@ public:
 
 	LRESULT OnWin4Message(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
 	{
+
 		return 0;
 	}
 
 	LRESULT OnWin5Message(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
 	{
+		if (m_loadingPercent > 100) // the loading phase is completed
+		{
+			switch (wParam)
+			{
+			case WIN5_UPDATE_MESSAGE:
+				{
+					MessageTask* mt = (MessageTask*)lParam;
+					if (mt)
+					{
+						int r = m_win4.AddNewMessage(mt);
+						if (r) Invalidate();
+					}
+				}
+			break;
+			default:
+				break;
+			}
+		}
+
 		return 0;
 	}
 
@@ -898,7 +957,7 @@ public:
 			HANDLE hThread = nullptr;
 			mqtt_started = true;
 
-			m_win2.SetFriendAndChatList(g_friendRoot, g_friendTotal, g_chatgroupRoot, g_chatgroupTotal);
+			m_win2.SetFriendAndChatList(g_myInfo->people, g_myInfo->people_count, g_myInfo->chatgroup, g_myInfo->chatgroup_count);
 			WTChatGroup* cg = m_win2.GetSelectedChatGroup();
 			if (cg)
 			{
@@ -910,10 +969,10 @@ public:
 			hThread = ::CreateThread(NULL, 0, MQTTPubThread, m_hWnd, 0, &dwThreadID);
 
 			/* we send out a reqeust to the broker to query whether my information is uploaded into the backend database */
-			task = (MessageTask*)wt_palloc0(g_messageMemPool, sizeof(MessageTask));
+			task = (MessageTask*)wt_palloc0(g_myInfo->pool, sizeof(MessageTask));
 			if (task)
 			{
-				task->message = (U8*)wt_palloc0(g_messageMemPool, PUBLIC_KEY_SIZE);
+				task->message = (U8*)wt_palloc0(g_myInfo->pool, PUBLIC_KEY_SIZE);
 				if (task->message)
 				{
 					int i;
@@ -958,7 +1017,7 @@ public:
 					for (i = 0; i < PUBLIC_KEY_SIZE; i++) pubkey[i] = p->pubkey[i];
 					if (wt_UTF8ToUTF16(p->message, p->msgLen, nullptr, &utf16Len) == WT_OK)
 					{
-						utf16Msg = (U16*)wt_palloc(g_messageMemPool, utf16Len * sizeof(U16));
+						utf16Msg = (U16*)wt_palloc(g_myInfo->pool, utf16Len * sizeof(U16));
 						if (utf16Msg)
 						{
 							wt_UTF8ToUTF16(p->message, p->msgLen, utf16Msg, nullptr);
@@ -977,7 +1036,7 @@ public:
 				case 'F':
 					if (memcmp(p->pubkey, pkRobot, PUBLIC_KEY_SIZE) == 0)
 					{
-						binMsg = (U8*)wt_palloc(g_messageMemPool, p->msgLen);
+						binMsg = (U8*)wt_palloc(g_myInfo->pool, p->msgLen);
 						if (binMsg)
 						{
 							memcpy(binMsg, p->message, p->msgLen);
@@ -1004,25 +1063,21 @@ public:
 			{
 			case 'T':
 				assert(utf16Msg);
-#if 0
 				if (m_win4.IsPublicKeyMatched(pubkey)) // we first look for the pubkey in window 4
 				{
-					MessageTask* task = (MessageTask*)wt_palloc0(g_messageMemPool, sizeof(MessageTask));
-					if (task)
-					{
-						task->message = (U8*)utf16Msg;
-						task->msgLen = utf16Len;
-						task->type = 'T';
-						for (i = 0; i < PUBLIC_KEY_SIZE; i++) task->pubkey[i] = pubkey[i];
-						m_win4.AddNewMessage(task, false);
-						wt_pfree(task);
-					}
+					MessageTask task = { 0 };
+					MessageTask* mt = &task;
+					mt->message = (U8*)utf16Msg;
+					mt->msgLen = utf16Len;
+					mt->type = 'T';
+					for (i = 0; i < PUBLIC_KEY_SIZE; i++) mt->pubkey[i] = pubkey[i];
+					m_win4.AddNewMessage(mt, false);
+					r++;
 				}
 				else // this message is not belongint to win4, look for other chat group
 				{
-					m_win2.ProcessTextMessage(pubkey, utf16Msg, utf16Len);
+					r = m_win2.ProcessTextMessage(pubkey, utf16Msg, utf16Len);
 				}
-#endif
 				break;
 			case 'R':
 				WT_MEMCMP(g_myInfo->pubkey, pubkey, PUBLIC_KEY_SIZE, isEqual);
@@ -1037,12 +1092,18 @@ public:
 				}
 				break;
 			case 'F':
-#if 0
 				if (binMsg)
 				{
-					r = m_win2.UpdateFrinedInfo(binMsg, value32);
+					bool found = false;
+					WTFriend* people = m_win2.UpdateFrinedInfo(binMsg, value32, &found);
+					if (found) r++;
+					wt_pfree(binMsg);
+					binMsg = nullptr;
+					if (people)
+					{
+						m_win3.UpdateFriendInformation(people);
+					}
 				}
-#endif
 				break;
 			default:
 				break;
@@ -1498,12 +1559,9 @@ public:
 	LRESULT OnAddFriend(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 	{
 		CAddFriendDlg dlg;
-		if (IDOK == dlg.DoModal())
-		{
-
-		}
+		dlg.DoModal();
 		return 0;
-}
+	}
 
 #if 0
 	LRESULT OnFileNewWindow(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
