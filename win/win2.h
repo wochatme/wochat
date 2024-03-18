@@ -63,7 +63,7 @@ public:
 	XWindow2()
 	{
 		m_backgroundColor = DEFAULT_COLOR;
-		m_property |= (DUI_PROP_HASVSCROLL | DUI_PROP_HANDLEWHEEL | DUI_PROP_LARGEMEMPOOL | DUI_PROP_HANDLETEXT);
+		m_property |= (DUI_PROP_HASVSCROLL | DUI_PROP_HANDLEWHEEL | DUI_PROP_LARGEMEMPOOL | DUI_PROP_HANDLETEXT | DUI_PROP_NONEMEMPOOL);
 		m_message = WM_XWINDOWS02;
 	}
 	~XWindow2() 
@@ -138,9 +138,9 @@ public:
 
 		if (m_friendRoot == nullptr)
 		{
-			m_friendRoot = (WTFriend*)wt_palloc0(m_pool, sizeof(WTFriend));
+			m_friendRoot = (WTFriend*)wt_palloc0(g_myInfo->pool, sizeof(WTFriend));
 			assert(m_friendRoot);
-			m_friendRoot->icon32 = (U32*)wt_palloc0(m_pool, WT_SMALL_ICON_SIZE);
+			m_friendRoot->icon32 = (U32*)wt_palloc0(g_myInfo->pool, WT_SMALL_ICON_SIZE);
 			assert(m_friendRoot->icon32);
 			q = m_friendRoot;
 		}
@@ -153,9 +153,9 @@ public:
 					break;
 				p = p->next;
 			}
-			q = (WTFriend*)wt_palloc0(m_pool, sizeof(WTFriend));
+			q = (WTFriend*)wt_palloc0(g_myInfo->pool, sizeof(WTFriend));
 			assert(q);
-			q->icon32 = (U32*)wt_palloc0(m_pool, WT_SMALL_ICON_SIZE);
+			q->icon32 = (U32*)wt_palloc0(g_myInfo->pool, WT_SMALL_ICON_SIZE);
 			assert(q->icon32);
 			p->next = q;
 			q->prev = p;
@@ -233,7 +233,7 @@ public:
 			if (cg)
 			{
 				assert(cg->people == people);
-				WTChatMessage* xmsg = (WTChatMessage*)wt_palloc0(m_pool, sizeof(WTChatMessage));
+				WTChatMessage* xmsg = (WTChatMessage*)wt_palloc0(g_myInfo->pool, sizeof(WTChatMessage));
 				if (xmsg)
 				{
 					r++;
@@ -262,10 +262,10 @@ public:
 			}
 			else
 			{
-				cg = (WTChatGroup*)wt_palloc0(m_pool, sizeof(WTChatGroup));
+				cg = (WTChatGroup*)wt_palloc0(g_myInfo->pool, sizeof(WTChatGroup));
 				if (cg)
 				{
-					WTChatMessage* xmsg = (WTChatMessage*)wt_palloc0(m_pool, sizeof(WTChatMessage));
+					WTChatMessage* xmsg = (WTChatMessage*)wt_palloc0(g_myInfo->pool, sizeof(WTChatMessage));
 					if (xmsg)
 					{
 						r++;
@@ -300,7 +300,6 @@ public:
 	{
 		U16 h = 20;
 		assert(nullptr == m_settingRoot);
-		assert(nullptr != m_pool);
 
 		IDWriteTextLayout* pTextLayout = nullptr;
 		IDWriteTextFormat* pTextFormat = GetTextFormatAndHeight(WT_TEXTFORMAT_MAINTEXT);
@@ -315,7 +314,7 @@ public:
 		SafeRelease(&pTextLayout);
 
 		m_settingTotal = 0;
-		m_settingRoot = (WTSetting*)wt_palloc0(m_pool, sizeof(WTSetting));
+		m_settingRoot = (WTSetting*)wt_palloc0(g_myInfo->pool, sizeof(WTSetting));
 		if (m_settingRoot)
 		{
 			m_settingTotal++;
@@ -326,7 +325,7 @@ public:
 			p->name = (U16*)txtGeneralSetting;
 			p->nameLen = 4;
 
-			WTSetting* q = (WTSetting*)wt_palloc0(m_pool, sizeof(WTSetting));
+			WTSetting* q = (WTSetting*)wt_palloc0(g_myInfo->pool, sizeof(WTSetting));
 			if (q)
 			{
 				m_settingTotal++;
@@ -336,7 +335,7 @@ public:
 				q->nameLen = 4;
 				p->next = q;
 				p = q;
-				q = (WTSetting*)wt_palloc0(m_pool, sizeof(WTSetting));
+				q = (WTSetting*)wt_palloc0(g_myInfo->pool, sizeof(WTSetting));
 				if (q)
 				{
 					m_settingTotal++;
@@ -346,7 +345,7 @@ public:
 					q->nameLen = 5;
 					p->next = q;
 					p = q;
-					q = (WTSetting*)wt_palloc0(m_pool, sizeof(WTSetting));
+					q = (WTSetting*)wt_palloc0(g_myInfo->pool, sizeof(WTSetting));
 					if (q)
 					{
 						m_settingTotal++;
@@ -362,28 +361,7 @@ public:
 		}
 		return WT_OK;
 	}
-#if 0
-	int LoadChatGroupList()
-	{
-		assert(m_chatgroupRoot == nullptr);
 
-		if (m_friendSelected)
-		{
-			m_chatgroupRoot = (WTChatGroup*)wt_palloc0(m_pool, sizeof(WTChatGroup));
-			if (nullptr != m_chatgroupRoot)
-			{
-				WTChatGroup* p;
-				m_chatgroupSelected = m_chatgroupRoot;
-				p = m_chatgroupRoot;
-				p->people = m_friendSelected;
-				m_friendSelected->chatgroup = p;
-				p->width = g_win4Width;
-				m_chatgroupTotal++;
-			}
-		}
-		return 0;
-	}
-#endif
 	void SetFriendAndChatList(WTFriend* people, U32 peopelTotal, WTChatGroup* chatgroup, U32 chatgroupTotal)
 	{
 		assert(people);
@@ -1310,7 +1288,7 @@ public:
 				WTChatGroup* cg = m_friendSelected->chatgroup;
 				if (cg == nullptr)
 				{
-					cg = (WTChatGroup*)wt_palloc0(m_pool, sizeof(WTChatGroup));
+					cg = (WTChatGroup*)wt_palloc0(g_myInfo->pool, sizeof(WTChatGroup));
 					assert(cg);
 					cg->people = m_friendSelected;
 					m_friendSelected->chatgroup = cg;

@@ -43,7 +43,8 @@ enum
     DUI_PROP_HANDLETEXT       = 0x00000020,
     DUI_PROP_HANDLETIMER      = 0x00000040,
     DUI_PROP_HANDLEKEYBOARD   = 0x00000080,
-    DUI_PROP_LARGEMEMPOOL     = 0x00000100
+    DUI_PROP_LARGEMEMPOOL     = 0x00000100,
+    DUI_PROP_NONEMEMPOOL      = 0x00000200
 };
 
 enum
@@ -300,9 +301,6 @@ public:
     // Windows Id is used for debugging purpose
     void SetWindowId(const U8* id, U8 bytes)
     {
-        U32 initSize = DUI_ALLOCSET_SMALL_INITSIZE;
-        U32 maxSize = DUI_ALLOCSET_SMALL_MAXSIZE;
-
         if (bytes > 7)
             bytes = 7;
 
@@ -312,13 +310,18 @@ public:
         m_Id[bytes] = 0; // zero-terminated string
 
         assert(!m_pool);
-        if (DUI_PROP_LARGEMEMPOOL & m_property)
+        if ((DUI_PROP_NONEMEMPOOL & m_property) == 0)
         {
-            initSize = DUI_ALLOCSET_DEFAULT_INITSIZE;
-            maxSize = DUI_ALLOCSET_DEFAULT_MAXSIZE;
+            U32 initSize = DUI_ALLOCSET_SMALL_INITSIZE;
+            U32 maxSize = DUI_ALLOCSET_SMALL_MAXSIZE;
+            if (DUI_PROP_LARGEMEMPOOL & m_property)
+            {
+                initSize = DUI_ALLOCSET_DEFAULT_INITSIZE;
+                maxSize = DUI_ALLOCSET_DEFAULT_MAXSIZE;
+            }
+            m_pool = wt_mempool_create((const char*)m_Id, 0, initSize, maxSize);
+            assert(m_pool);
         }
-        m_pool = wt_mempool_create((const char*)m_Id, 0, initSize, maxSize);
-        assert(m_pool);
     }
 
     bool IsVisible() const
@@ -1180,7 +1183,6 @@ public:
 #else
         m_hWnd = nullptr;
 #endif
-        assert(m_pool); // the memory pool has been created before this call
         T* pT = static_cast<T*>(this);
         pT->InitControl();
 

@@ -50,6 +50,39 @@ static BOOL	g_fThemeApiAvailable = FALSE;
 static int WidthofLoginDlg = 0;
 static int HeightofLoginDlg = 0;
 
+// we have the 32-byte secret key, we want to generate the public key, return 0 if successful
+static U32 GenPublicKeyFromSecretKey(U8* sk, U8* pk)
+{
+	U32 ret = WT_FAIL;
+	secp256k1_context* ctx;
+
+	ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
+	if (ctx)
+	{
+		int return_val;
+		size_t len = 33;
+		U8 compressed_pubkey[33];
+		U8 randomize[32];
+		secp256k1_pubkey pubkey;
+
+		if (WT_OK == wt_GenerateRandom32Bytes(randomize))
+		{
+			return_val = secp256k1_ec_pubkey_create(ctx, &pubkey, sk);
+			if (1 == return_val)
+			{
+				return_val = secp256k1_ec_pubkey_serialize(ctx, compressed_pubkey, &len, &pubkey, SECP256K1_EC_COMPRESSED);
+				if (len == 33 && return_val == 1 && pk)
+				{
+					for (int i = 0; i < 33; i++) pk[i] = compressed_pubkey[i];
+					ret = WT_OK;
+				}
+			}
+		}
+		secp256k1_context_destroy(ctx);
+	}
+	return ret;
+}
+
 static HTHEME _OpenThemeData(HWND hwnd, LPCWSTR pszClassList)
 {
 	if (g_fThemeApiAvailable)

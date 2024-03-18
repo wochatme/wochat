@@ -26,7 +26,7 @@ public:
 	XWindow4()
 	{
 		m_backgroundColor = 0xFFF5F5F5;
-		m_property |= (DUI_PROP_HASVSCROLL | DUI_PROP_HANDLEWHEEL | DUI_PROP_HANDLETEXT | DUI_PROP_LARGEMEMPOOL);
+		m_property |= (DUI_PROP_HASVSCROLL | DUI_PROP_HANDLEWHEEL | DUI_PROP_HANDLETEXT | DUI_PROP_NONEMEMPOOL);
 		m_message = WM_XWINDOWS04;
 	}
 
@@ -232,7 +232,7 @@ public:
 			{
 				if ('T' == mt->type)
 				{
-					WTChatMessage* p = (WTChatMessage*)wt_palloc0(m_pool, sizeof(WTChatMessage));
+					WTChatMessage* p = (WTChatMessage*)wt_palloc0(g_myInfo->pool, sizeof(WTChatMessage));
 					if (p)
 					{
 						int txtW = 0, txtH = 0;

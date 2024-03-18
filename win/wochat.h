@@ -92,7 +92,6 @@ extern MessageTask* g_SubQueue;
 extern int g_win4Width;
 extern int g_win4Height;
 
-U32 CheckWoChatDatabase(LPCWSTR lpszPath);
 U32 GetAccountNumber(int* total);
 bool DoLogin();
 bool DoRegistration();
@@ -100,7 +99,6 @@ bool DoRegistration();
 U8* TryToAddNewFriend(U8 source, U8* pubkey);
 
 U32 PushTaskIntoSendMessageQueue(MessageTask* message_task);
-U32 GenPublicKeyFromSecretKey(U8* sk, U8* pk);
 U32 GetReceiverPublicKey(void* parent, U8* pk);
 
 U8* GetRobotPublicKey();

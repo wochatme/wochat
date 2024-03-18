@@ -3,13 +3,6 @@
 /////////////////////////////////////////////////////////////////////////////
 
 #pragma once
-#include "wochatdlg.h"
-#include "win0.h"
-#include "win1.h"
-#include "win2.h"
-#include "win3.h"
-#include "win4.h"
-#include "win5.h"
 
 /************************************************************************************************
 *  The layout of the Main Window

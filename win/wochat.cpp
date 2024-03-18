@@ -16,7 +16,13 @@
 #define MOSQUITTO_STATUS_NOHOPE			5
 #define MOSQUITTO_STATUS_DONE			6
 
-static ULONGLONG WT_TIME2000 = 0;
+static volatile int pub_status = MOSQUITTO_STATUS_CONNECTING;
+
+/* a randome number as the prefix of each text message */
+static U32 ng_seqnumber = 0; 
+/* a fix value to cache the start time point */
+static ULONGLONG WT_TIME20000101 = 0;
+
 /* get the time of 2000/01/01 00:00:00 */
 static bool Get2000UTCTime64()
 {
@@ -31,7 +37,7 @@ static bool Get2000UTCTime64()
 	st2000.wSecond = 0;
 	st2000.wMilliseconds = 0;
 	bRet = (bool)SystemTimeToFileTime(&st2000, &ft2000);
-	WT_TIME2000 = ((ULONGLONG)ft2000.dwHighDateTime << 32) + ft2000.dwLowDateTime;
+	WT_TIME20000101 = ((ULONGLONG)ft2000.dwHighDateTime << 32) + ft2000.dwLowDateTime;
 	assert(bRet);
 	return bRet;
 }
@@ -44,9 +50,8 @@ S64 GetCurrentUTCTime64()
 	GetSystemTime(&st);
 	SystemTimeToFileTime(&st, &ft);
 	ULONGLONG tm_now = ((ULONGLONG)ft.dwHighDateTime << 32) + ft.dwLowDateTime;
-	assert(WT_TIME2000 > 0);
-	S64 tm = (S64)((tm_now - WT_TIME2000) / 10000000); /* in second */
-	assert((tm & 0x8000000000000000) == 0);
+	assert(WT_TIME20000101 > 0);
+	S64 tm = (S64)((tm_now - WT_TIME20000101) / 10000000); /* in second */
 	return tm;
 }
 
@@ -80,9 +85,6 @@ typedef struct MQTT_Conf
 
 static MQTT_Conf confSub = { 0 };
 static MQTT_Conf confPub = { 0 };
-
-static volatile int pub_status = MOSQUITTO_STATUS_CONNECTING;
-static U32 ng_seqnumber = 0;
 
 typedef struct PublishTask
 {
@@ -154,40 +156,6 @@ U32 PushTaskIntoSendMessageQueue(MessageTask* mt)
 		SetEvent(g_MQTTPubEvent); // tell the Pub thread to work
 	}
 	return WT_OK;
-}
-
-
-// we have the 32-byte secret key, we want to generate the public key, return 0 if successful
-U32 GenPublicKeyFromSecretKey(U8* sk, U8* pk)
-{
-	U32 ret = WT_FAIL;
-	secp256k1_context* ctx;
-
-	ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
-	if (ctx)
-	{
-		int return_val;
-		size_t len = 33;
-		U8 compressed_pubkey[33];
-		U8 randomize[32];
-		secp256k1_pubkey pubkey;
-
-		if (WT_OK == wt_GenerateRandom32Bytes(randomize))
-		{
-			return_val = secp256k1_ec_pubkey_create(ctx, &pubkey, sk);
-			if (1 == return_val)
-			{
-				return_val = secp256k1_ec_pubkey_serialize(ctx, compressed_pubkey, &len, &pubkey, SECP256K1_EC_COMPRESSED);
-				if (len == 33 && return_val == 1 && pk)
-				{
-					for (int i = 0; i < 33; i++) pk[i] = compressed_pubkey[i];
-					ret = WT_OK;
-				}
-			}
-		}
-		secp256k1_context_destroy(ctx);
-	}
-	return ret;
 }
 
 static U32 LoadFriendList()
@@ -361,35 +329,29 @@ static U32 LoadChatList()
 
 DWORD WINAPI LoadingDataThread(LPVOID lpData)
 {
-	U8 percentage = 0;
-	HWND hWndUI;
-
 	InterlockedIncrement(&g_threadCount);
-
-	hWndUI = (HWND)(lpData);
+	HWND hWndUI = (HWND)(lpData);
 	ATLASSERT(::IsWindow(hWndUI));
-
+	U8 percentage = 0;
 	while (0 == g_Quit)
 	{
-		if (percentage == 0)
-		{
-			LoadFriendList();
-		}
 		Sleep(20);
 		PostMessage(hWndUI, WM_LOADPERCENTMESSAGE, (WPARAM)percentage, 0);
 		percentage += 2;
 		if (percentage == 10)
+		{
+			LoadFriendList();
+		}
+		if (percentage == 20)
 		{
 			LoadChatList();
 		}
 		if (percentage >= 104)
 			break;
 	}
-
 	InterlockedDecrement(&g_threadCount);
     return 0;
 }
-
 
 static U32 MQTTConfInit(MemoryPoolContext pool, HWND hWnd, bool isPub = true)
 {
@@ -407,7 +369,6 @@ static U32 MQTTConfInit(MemoryPoolContext pool, HWND hWnd, bool isPub = true)
 	{
 		conf->mempool = pool;
 		conf->hWnd = hWnd;
-
 		if (!isPub)
 		{
 			conf->topic_count = 0;
@@ -424,7 +385,6 @@ static U32 MQTTConfInit(MemoryPoolContext pool, HWND hWnd, bool isPub = true)
 static void MQTTConfTerm(bool isPub = true)
 {
 	MQTT_Conf* conf = isPub ? &confPub : &confSub;
-
 	wt_mempool_destroy(conf->ctx);
 	memset(conf, 0, sizeof(MQTT_Conf));
 }
@@ -449,38 +409,48 @@ static void MQTTConfAddSubTopic(char* topic)
 /* each time we only pick up one task from the send out queue */
 static PublishTask* CheckSendMessageTasks(MemoryPoolContext mempool)
 {
+	PublishTask* item = nullptr;
 	EnterCriticalSection(&g_csMQTTPub);
 	if (g_PubQueue)
 	{
-		U32 ret, len = 0;
+		U32 status, utf8len = 0;
 		U32* p32;
-		PublishTask* item;
 		MessageTask* p = g_PubQueue;
 		while (p)
 		{
-			if (p->state < MESSAGE_TASK_STATE_COMPLETE)
+			if (p->state < MESSAGE_TASK_STATE_COMPLETE) /* this task is not processed yet */
 			{
 				item = (PublishTask*)wt_palloc0(mempool, sizeof(PublishTask));
 				if (item)
 				{
-					if (p->type == 'T') // it is UTF16 encoding, we convert to UTF8 encoding
+					switch (p->type)
 					{
-						ret = wt_UTF16ToUTF8((U16*)p->message, p->msgLen, nullptr, &len);
-						if (WT_OK == ret)
+					case 'T':
 						{
-							// we use the first 4 bytes to fill some random data
-							// so even the same string has different hash value
-							item->message = (U8*)wt_palloc(mempool, len + 4);
-							if (item->message)
+							/* the text string is UTF16 encoding */
+							utf8len = 0;
+							status = wt_UTF16ToUTF8((U16*)p->message, p->msgLen, nullptr, &utf8len);
+							/* this string can be converted from UTF16 to UTF8 successfully */
+							if (WT_OK == status && utf8len > 0) 
 							{
-								p32 = (U32*)item->message;
-								*p32 = ng_seqnumber++;
-								wt_UTF16ToUTF8((U16*)p->message, p->msgLen, item->message + 4, nullptr);
-								assert(ret == WT_OK);
-								item->msgLen = len + 4;
-								item->node = p;
-								LeaveCriticalSection(&g_csMQTTPub);
-								return item;
+								// we use the first 4 bytes to fill some random data
+								// so even the same string has different hash value
+								item->message = (U8*)wt_palloc(mempool, utf8len + 4);
+								if (item->message)
+								{
+									p32 = (U32*)item->message;
+									*p32 = ng_seqnumber++;
+									status = wt_UTF16ToUTF8((U16*)p->message, p->msgLen, item->message + 4, nullptr);
+									assert(status == WT_OK);
+									item->msgLen = utf8len + 4;
+									item->node = p;
+									goto Exit_CheckSendMessageTasks;
+								}
+								else
+								{
+									wt_pfree(item);
+									item = nullptr;
+								}
 							}
 							else
 							{
@@ -488,26 +458,26 @@ static PublishTask* CheckSendMessageTasks(MemoryPoolContext mempool)
 								item = nullptr;
 							}
 						}
-						else
+						break;
+					case 'Q':
+					case 'U':
+					case 'A':
 						{
-							wt_pfree(item);
-							item = nullptr;
+							item->node = p;
+							goto Exit_CheckSendMessageTasks;
 						}
-					}
-					else if (p->type == 'Q' || p->type == 'U' || p->type == 'A')
-					{
-						item->node = p;
-						LeaveCriticalSection(&g_csMQTTPub);
-						return item;
+						break;
+					default:
+						break;
 					}
 				}
 			}
 			p = p->next;
 		}
 	}
+Exit_CheckSendMessageTasks:
 	LeaveCriticalSection(&g_csMQTTPub);
-
-	return nullptr;
+	return item;
 }
 
 // put the incoming message into the queue
@@ -515,43 +485,57 @@ static U32 PushTaskIntoReceiveMessageQueue(MessageTask* task = nullptr)
 {
 	U32 ret = 0;
 	MessageTask* p;
+	MessageTask* q;
 
 	EnterCriticalSection(&g_csMQTTSub);
-	while (g_SubQueue) // scan the link to find the message that has been processed
+	p = g_SubQueue;
+	while (p) // scan the link to find the message that has been processed
 	{
-		p = g_SubQueue->next;
-		if (MESSAGE_TASK_STATE_NULL == g_SubQueue->state) // this task is not processed yet.
+		q = p->next;
+		if (MESSAGE_TASK_STATE_NULL == p->state) // this task is not processed yet.
 			break;
 
-		wt_pfree(g_SubQueue->message);
-		wt_pfree(g_SubQueue);
-		g_SubQueue = p;
+		wt_pfree(p->message);
+		wt_pfree(p);
+		p = q;
 	}
 
-	if (nullptr == g_SubQueue) // there is no task in the queue
+	g_SubQueue = p; /* now g_SubQueue is point to the first node that is not processed, or NULL */
+
+	if (nullptr == p) // there is no task in the queue
 	{
 		g_SubQueue = task;
-		LeaveCriticalSection(&g_csMQTTSub);
-		return WT_OK;
 	}
-	assert(g_SubQueue);
-	p = g_SubQueue;
-	while (p->next) p = p->next;  // look for the last node
-
-	p->next = task;  // put task as the last node
+	else
+	{
+		while (p->next) p = p->next;  // look for the last node
+		p->next = task;  // put task as the last node
+	}
 
 	LeaveCriticalSection(&g_csMQTTSub);
 	return WT_OK;
 }
 
+/* 
+ * this is the most import point for WoChat application's security
+ * 
+ * The sender uses his private key and the receiver's public key to 
+ * generate the shared key between them.
+ * The recevier can use his private key and the sender's public key to
+ * generate the same shared key. 
+ * So they can communicate with each other without transferring the 
+ * shared key to each other!!!
+ * 
+ * This is the basis of the security of Wochat application.
+ */
 static U32 GetKeyFromSecretKeyAndPlubicKey(U8* sk, U8* pk, U8* key)
 {
-	U32 ret = WT_FAIL;
-	secp256k1_context* ctx;
-
 	assert(sk);
 	assert(pk);
 	assert(key);
+
+	U32 ret = WT_SECP256K1_CTX_ERROR;
+	secp256k1_context* ctx;
 
 	ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
 	if (ctx)
@@ -561,20 +545,18 @@ static U32 GetKeyFromSecretKeyAndPlubicKey(U8* sk, U8* pk, U8* key)
 		U8 k[SECRET_KEY_SIZE] = { 0 };
 
 		rc = secp256k1_ec_pubkey_parse(ctx, &pubkey, pk, PUBLIC_KEY_SIZE);
-		if (1 != rc)
-		{
-			secp256k1_context_destroy(ctx);
-			return WT_SECP256K1_CTX_ERROR;
-		}
-		rc = secp256k1_ecdh(ctx, k, &pubkey, sk, NULL, NULL);
 		if (1 == rc)
 		{
-			for (int i = 0; i < SECRET_KEY_SIZE; i++)
+			rc = secp256k1_ecdh(ctx, k, &pubkey, sk, NULL, NULL);
+			if (1 == rc)
 			{
-				key[i] = k[i];
-				k[i] = 0;
+				for (int i = 0; i < SECRET_KEY_SIZE; i++)
+				{
+					key[i] = k[i];
+					k[i] = 0;
+				}
+				ret = WT_OK;
 			}
-			ret = WT_OK;
 		}
 		secp256k1_context_destroy(ctx);
 	}
@@ -586,7 +568,7 @@ static void sub_connect_callback(struct mosquitto* mosq, void* obj, int result, 
 	UNUSED(flags);
 	UNUSED(properties);
 
-	if (result == 0)
+	if (result == 0) /* we are connecting to the broker successfully */
 	{
 		MQTT_Conf* conf = (MQTT_Conf*)obj;
 		if (conf)
@@ -641,7 +623,7 @@ static U32 HandleQueryMessage(HWND hWndUI, MemoryPoolContext mempool, U8* primar
 				sqlite3* db;
 				task->sequence = InterlockedIncrement(&g_messageId);
 
-				//EnterCriticalSection(&g_csSQLiteDB);
+				EnterCriticalSection(&g_csSQLiteDB);
 				int rc = sqlite3_open16(g_DBPath, &db);
 				if (SQLITE_OK == rc)
 				{
@@ -678,7 +660,8 @@ static U32 HandleQueryMessage(HWND hWndUI, MemoryPoolContext mempool, U8* primar
 					}
 					sqlite3_close(db);
 				}
-				//LeaveCriticalSection(&g_csSQLiteDB);
+				LeaveCriticalSection(&g_csSQLiteDB);
+
 				task->value32 = *((U32*)(message_raw + 32 + 33));
 				p = message_raw + 32;
 				for (i = 0; i < PUBLIC_KEY_SIZE; i++) task->pubkey[i] = p[i];
@@ -712,7 +695,7 @@ static U32 Handle_F_Message(HWND hWndUI, MemoryPoolContext mempool, U8* pubkey, 
 			memcpy(task->pubkey, pubkey, PUBLIC_KEY_SIZE);
 			task->type = 'F';
 
-			//EnterCriticalSection(&g_csSQLiteDB);
+			EnterCriticalSection(&g_csSQLiteDB);
 			int rc = sqlite3_open16(g_DBPath, &db);
 			if (SQLITE_OK == rc)
 			{
@@ -747,7 +730,7 @@ static U32 Handle_F_Message(HWND hWndUI, MemoryPoolContext mempool, U8* pubkey, 
 				}
 				sqlite3_close(db);
 			}
-			//LeaveCriticalSection(&g_csSQLiteDB);
+			LeaveCriticalSection(&g_csSQLiteDB);
 
 			PushTaskIntoReceiveMessageQueue(task);
 		}
@@ -825,7 +808,7 @@ static U32 HandleCommonMessage(HWND hWndUI, MemoryPoolContext mempool, U8* prima
 			{
 				// ok, this is a legal message, we record it in out M table
 				sqlite3* db;
-				//EnterCriticalSection(&g_csSQLiteDB);
+				EnterCriticalSection(&g_csSQLiteDB);
 				int rc = sqlite3_open16(g_DBPath, &db);
 				if (SQLITE_OK == rc)
 				{
@@ -862,7 +845,7 @@ static U32 HandleCommonMessage(HWND hWndUI, MemoryPoolContext mempool, U8* prima
 					}
 					sqlite3_close(db);
 				}
-				//LeaveCriticalSection(&g_csSQLiteDB);
+				LeaveCriticalSection(&g_csSQLiteDB);
 
 				switch (op)
 				{
@@ -885,26 +868,23 @@ static U32 HandleCommonMessage(HWND hWndUI, MemoryPoolContext mempool, U8* prima
 	return WT_OK;
 }
 
-
 static void sub_message_callback(struct mosquitto* mosq, void* obj, const struct mosquitto_message* message, const mosquitto_property* properties)
 {
-	HWND hWndUI;
-	MemoryPoolContext pool;
-	U8 Kp[32] = { 0 };
-	U8 pkSender[33] = { 0 };
-	U8 pkReceiver[33] = { 0 };
+	U8 Kp[SECRET_KEY_SIZE]         = { 0 };
+	U8 pkSender[PUBLIC_KEY_SIZE]   = { 0 };
+	U8 pkReceiver[PUBLIC_KEY_SIZE] = { 0 };
+
 	MQTT_Conf* conf = (MQTT_Conf*)obj;
 	assert(conf);
-	pool = conf->mempool;
+	MemoryPoolContext pool = conf->mempool;
 	assert(pool);
+	HWND hWndUI = (HWND)conf->hWnd;
+	assert(::IsWindow(hWndUI));
 
 	UNUSED(properties);
 
-	hWndUI = (HWND)conf->hWnd;
-	assert(::IsWindow(hWndUI));
-
 	U8* msssage_b64 = (U8*)message->payload;
-	U32 length_b64 = (U32)message->payloadlen;
+	U32 length_b64  = (U32)message->payloadlen;
 
 	// do some pre-check at first 
 	if (length_b64 < 89 + 140) // this is the minimal size for the packet
@@ -921,8 +901,6 @@ static void sub_message_callback(struct mosquitto* mosq, void* obj, const struct
 	switch (msssage_b64[88])
 	{
 	case '@':
-		HandleCommonMessage(hWndUI, pool, Kp, pkSender, msssage_b64, length_b64);
-		break;
 	case '*':
 		HandleCommonMessage(hWndUI, pool, Kp, pkSender, msssage_b64, length_b64);
 		break;
@@ -935,6 +913,8 @@ static void sub_message_callback(struct mosquitto* mosq, void* obj, const struct
 	default:
 		break;
 	}
+	/* clear the shared key */
+	for (U8 i = 0; i < SECRET_KEY_SIZE; i++) Kp[i] = 0;
 }
 
 DWORD WINAPI MQTTSubThread(LPVOID lpData)
@@ -942,7 +922,7 @@ DWORD WINAPI MQTTSubThread(LPVOID lpData)
 	MemoryPoolContext mempool;
 	HWND hWndUI = (HWND)(lpData);
 	ATLASSERT(::IsWindow(hWndUI));
-	ATLASSERT(g_myInfo);
+
 	InterlockedIncrement(&g_threadCount);
 
 	mempool = wt_mempool_create("MQTT_SUB_POOL", 0, DUI_ALLOCSET_DEFAULT_INITSIZE, DUI_ALLOCSET_DEFAULT_MAXSIZE);
@@ -954,6 +934,7 @@ DWORD WINAPI MQTTSubThread(LPVOID lpData)
 
 		MQTTConfInit(mempool, hWndUI, false);
 
+		ATLASSERT(g_myInfo);
 		wt_Raw2HexString(g_myInfo->pubkey, PUBLIC_KEY_SIZE, (U8*)topic, nullptr);
 		MQTTConfAddSubTopic(topic);
 
@@ -975,7 +956,8 @@ DWORD WINAPI MQTTSubThread(LPVOID lpData)
 				}
 				else
 				{
-					InterlockedExchange(&g_NetworkStatus, WT_NETWORK_IS_BAD); // if we cannot connect, the network is not good
+					// if we cannot connect, the network is not good
+					InterlockedExchange(&g_NetworkStatus, WT_NETWORK_IS_BAD); 
 					Sleep(1000); // wait for 1 second to try
 				}
 			}
@@ -987,15 +969,12 @@ DWORD WINAPI MQTTSubThread(LPVOID lpData)
 					if (g_Quit)
 						break;
 					rc = mosquitto_loop(mosq, -1, 1);
-					if (rc == MOSQ_ERR_SUCCESS)
+					if (rc != MOSQ_ERR_SUCCESS)
 					{
-						InterlockedExchange(&g_NetworkStatus, WT_NETWORK_IS_GOOD);
-						//PushTaskIntoReceiveMessageQueue(nullptr); // free the task that had been processed.
-						//Sleep(100);
-						continue;
+						InterlockedExchange(&g_NetworkStatus, WT_NETWORK_IS_BAD);
+						break;
 					}
-					InterlockedExchange(&g_NetworkStatus, WT_NETWORK_IS_BAD);
-					break;
+					InterlockedExchange(&g_NetworkStatus, WT_NETWORK_IS_GOOD);
 				}
 
 				if (g_Quit)
@@ -1023,8 +1002,10 @@ DWORD WINAPI MQTTSubThread(LPVOID lpData)
 	}
 
 	wt_mempool_destroy(mempool);
+	
 	InterlockedDecrement(&g_threadCount);
-    return 0;
+
+	return 0;
 }
 
 char* Make_AQ_Message(U8 mtype, MemoryPoolContext pool, U8* pubkey_receiver, U8* pubkey, U32* length, U8* hash)
@@ -1260,7 +1241,7 @@ void pub_publish_callback(struct mosquitto* mosq, void* obj, int mid, int reason
 		InterlockedIncrement(&(mt->state));
 		if (conf->message)
 		{
-			//EnterCriticalSection(&g_csSQLiteDB);
+			EnterCriticalSection(&g_csSQLiteDB);
 			sqlite3* db;
 			int rc = sqlite3_open16(g_DBPath, &db);
 			if (SQLITE_OK == rc)
@@ -1296,7 +1277,7 @@ void pub_publish_callback(struct mosquitto* mosq, void* obj, int mid, int reason
 				}
 				sqlite3_close(db);
 			}
-			//LeaveCriticalSection(&g_csSQLiteDB);
+			LeaveCriticalSection(&g_csSQLiteDB);
 
 			wt_pfree(conf->message);
 			conf->message = NULL;
