@@ -38,6 +38,7 @@ extern CAppModule _Module;
 
 #include <atlwin.h>
 
+#include <wil/com.h>
 #include <mutex>
 #include <cmath>
 

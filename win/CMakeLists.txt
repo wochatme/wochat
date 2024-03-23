@@ -11,7 +11,7 @@ add_executable(${PROJECT_NAME} WIN32
     stdafx.cpp    
 	wochat.cpp 
 	wochatdlg.cpp
-#	mosquitto.cpp 
+	wtrender.cpp 
 #	winchathist.cpp 
 #   winsearch.cpp 
 #	winaudiocall.cpp 
