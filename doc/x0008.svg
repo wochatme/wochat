@@ -9,7 +9,7 @@
 
 <path d="M 180 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
 
-<text x="27" y="58" style="font-size:13px;font-family:'Arial'">x</text>
+<text x="27" y="58" style="font-size:13px;font-family:'Arial'">p</text>
 <text x="46" y="59" style="font-size:13px;font-family:'Arial'">1</text>
 <text x="66" y="59" style="font-size:13px;font-family:'Arial'">0</text>
 <text x="86" y="59" style="font-size:13px;font-family:'Arial'">0</text>
