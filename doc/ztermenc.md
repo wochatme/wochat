@@ -59,7 +59,7 @@ Generate encrypted file: [9f9facac29e1b374acb1d6dfd0bb0937e0147ddfc56551941e83c3
 INSERT INTO doc(did,key) VALUES('9f9facac29e1b374acb1d6dfd0bb0937e0147ddfc56551941e83c31beda535e5', 'c762ded647a7836d202f40df64f7fc72666251172bdddce40fde5fb67c283a8a');
 ```
 
-经过上述操作，文档HowToBuildZTerm.9f9facac29e1b374acb1d6dfd0bb0937e0147ddfc56551941e83c31beda535e5。 把这个文件放在https://zterm.ai/t 目录下供用户下载即可。
+经过上述操作，文档HowToBuildZTerm被加密成了新文件，它的文件名是：9f9facac29e1b374acb1d6dfd0bb0937e0147ddfc56551941e83c31beda535e5。 把这个文件放在https://zterm.ai/t 目录下供用户下载即可。
 
 同时该工具还生成了一条INSERT的SQL语句，在数据库中执行这条语句把密钥出入到数据库中即可。 当然c762ded647a7836d202f40df64f7fc72666251172bdddce40fde5fb67c283a8a是被私钥加密过的。 即使数据库被黑客攻破，拿到了doc表里面的信息，只要私钥SK没有泄漏，黑客也无法破译每个文档的密钥。 所以保护私钥是整个系统唯一需要注意的地方。
 
