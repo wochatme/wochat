@@ -61,7 +61,7 @@ INSERT INTO doc(did,key) VALUES('9f9facac29e1b374acb1d6dfd0bb0937e0147ddfc565519
 
 经过上述操作，文档HowToBuildZTerm被加密成了新文件，它的文件名是：9f9facac29e1b374acb1d6dfd0bb0937e0147ddfc56551941e83c31beda535e5。 把这个文件放在https://zterm.ai/t 目录下供用户下载即可。
 
-同时该工具还生成了一条INSERT的SQL语句，在数据库中执行这条语句把密钥出入到数据库中即可。 当然c762ded647a7836d202f40df64f7fc72666251172bdddce40fde5fb67c283a8a是被私钥加密过的。 即使数据库被黑客攻破，拿到了doc表里面的信息，只要私钥SK没有泄漏，黑客也无法破译每个文档的密钥。 所以保护私钥是整个系统唯一需要注意的地方。
+同时该工具还生成了一条INSERT的SQL语句，在数据库中执行这条语句把密钥存入到数据库中即可。 当然c762ded647a7836d202f40df64f7fc72666251172bdddce40fde5fb67c283a8a是被私钥加密过的。 即使数据库被黑客攻破，拿到了doc表里面的信息，只要私钥SK没有泄漏，黑客也无法破译每个文档的密钥。 所以保护私钥是整个系统唯一需要注意的地方。
 
 ## 产生用户需要的密钥
 
@@ -70,7 +70,13 @@ INSERT INTO doc(did,key) VALUES('9f9facac29e1b374acb1d6dfd0bb0937e0147ddfc565519
 $ ./filekey
 Usage: ./filekey password secretkey pubkey filekey
 ```
-第一个参数是私钥的口令，第二个参数是加密后的私钥，第三个是用户的公钥，第四个是保存在数据库doc表中key列的值。 我们执行：
+上述四个参数的含义如下：
+- 第一个参数是私钥的口令
+- 第二个参数是加密后的私钥
+- 第三个是用户的公钥，用户索取文档密钥时，必须提供自己的公钥。服务器拿着他的公钥对文档密钥进行加密，只有该用户才能解密。
+- 第四个是保存在数据库doc表中key列的值。 
+
+我们执行：
 ```
 $ ./filekey ZTerm@AI 30ef272a10d1302134801d6f8d27ad72ffe42c5544710769ec491ac7f5c9daea 02b915c65202d35eeaf8760827499042bef0f2fc88009bc0d17d9949362b36686f c762ded647a7836d202f40df64f7fc72666251172bdddce40fde5fb67c283a8a
 Key To User : 4508a7da2a0823bdf1c3174888a75888d34f2e8beed44a7298f2f43e0bc64905
