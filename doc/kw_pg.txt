@@ -1,5 +1,3 @@
-# PostgreSQL Keywords
-
 access-method-pattern
 access-method-specific
 access-methods-for-next-generation
@@ -64,7 +62,6 @@ alias
 alias_name
 aliases
 aliasing
-alice
 align
 aligned
 alignment
@@ -90,7 +87,6 @@ allocating
 allocation
 allocations
 allocator
-alloced
 allow-group-access
 allow_connections
 allow_in_place_tablespaces
