@@ -2,7 +2,7 @@
 <defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" /></marker></defs>
 
 <path d="M 20 65 h 560 v -20 h -560 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
-<path d="M 30 65 h 560 v -20 h -560 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
+<path d="M 30 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
 <path d="M 40 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
 <path d="M 60 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
 <path d="M 80 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
@@ -22,9 +22,9 @@
 <path d="M 25 23 V 33" stroke="#000000" stroke-width="1" fill="none" marker-end="url(#arrowhead)"/>
 <text x="5" y="20" style="font-size:13px;font-family:'Microsoft Yahei'">4-bit文件类型</text>
 
-<text x="20" y="100" style="font-size:13px;font-family:'Microsoft Yahei'">1.文件的类型(28-bit)</text>
-<text x="160" y="100" style="font-size:13px;font-family:'Microsoft Yahei'">3.文件数据的SHA256哈希值</text>
-<text x="110" y="20" style="font-size:13px;font-family:'Microsoft Yahei'">2.文件的长度</text>
+<text x="10" y="100" style="font-size:13px;font-family:'Microsoft Yahei'">1.最终文件的长度(28-bit)</text>
+<text x="180" y="100" style="font-size:13px;font-family:'Microsoft Yahei'">3.文件数据的SHA256哈希值</text>
+<text x="110" y="20" style="font-size:13px;font-family:'Microsoft Yahei'">2.原始文件的长度</text>
 <text x="385" y="20" style="font-size:13px;font-family:'Microsoft Yahei'">4.文档的真正数据</text>
 
 </svg>
