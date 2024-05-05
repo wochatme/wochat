@@ -2,10 +2,10 @@
 <defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" /></marker></defs>
 
 <path d="M 20 65 h 560 v -20 h -560 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
-<path d="M 30 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
 <path d="M 40 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
 <path d="M 60 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
 <path d="M 80 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
+<path d="M 90 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
 <path d="M 100 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
 <path d="M 180 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
 <path d="M 300 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
@@ -14,13 +14,13 @@
 <text x="220" y="60" style="font-size:13px;font-family:'Microsoft Yahei UI'">32字节</text>
 <text x="400" y="60" style="font-size:13px;font-family:'Microsoft Yahei UI'">可变长度</text>
 
-<path d="M 30 68 v 5 a 5 5 0 0 0 5 5 h 25 a 5 5 0 0 1 5 5 a 5 5 0 0 1 5 -5 h 25 a 5 5 0 0 0 5 -5 v -5" stroke="#000000" stroke-width="1" fill="none"/>
+<path d="M 20 68 v 5 a 5 5 0 0 0 5 5 h 25 a 5 5 0 0 1 5 5 a 5 5 0 0 1 5 -5 h 25 a 5 5 0 0 0 5 -5 v -5" stroke="#000000" stroke-width="1" fill="none"/>
 <path d="M 180 68 v 5 a 5 5 0 0 0 5 5 h 50 a 5 5 0 0 1 5 5 a 5 5 0 0 1 5 -5 h 50 a 5 5 0 0 0 5 -5 v -5" stroke="#000000" stroke-width="1" fill="none"/>
 <path d="M 100 42 v -5 a 5 5 0 0 1 5 -5 h 30 a 5 5 0 0 0 5 -5 a 5 5 0 0 0 5 5 h 30 a 5 5 0 0 1 5 5 v 5" stroke="#000000" stroke-width="1" fill="none"/>
 <path d="M 300 42 v -5 a 5 5 0 0 1 5 -5 h 130 a 5 5 0 0 0 5 -5 a 5 5 0 0 0 5 5 h 130 a 5 5 0 0 1 5 5 v 5" stroke="#000000" stroke-width="1" fill="none"/>
 
-<path d="M 25 23 V 33" stroke="#000000" stroke-width="1" fill="none" marker-end="url(#arrowhead)"/>
-<text x="5" y="20" style="font-size:13px;font-family:'Microsoft Yahei'">4-bit文件类型</text>
+<path d="M 95 23 V 33" stroke="#000000" stroke-width="1" fill="none" marker-end="url(#arrowhead)"/>
+<text x="15" y="20" style="font-size:13px;font-family:'Microsoft Yahei'">文件类型4-bit</text>
 
 <text x="10" y="100" style="font-size:13px;font-family:'Microsoft Yahei'">1.最终文件的长度(28-bit)</text>
 <text x="180" y="100" style="font-size:13px;font-family:'Microsoft Yahei'">3.文件数据的SHA256哈希值</text>
