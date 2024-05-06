@@ -7,16 +7,21 @@
 CREATE TABLE doc
 (
     id    BIGSERIAL PRIMARY KEY,
+    dt    DATE,
     did   CHAR(64),
     key   CHAR(64),
-    ftype INTEGER,
-    kw    TEXT,
-    txt   TEXT
-)
+    typ   INTEGER DEFAULT 1,
+    txt   TEXT,
+    kw    TEXT
+);
+
+CREATE INDEX doc_hash ON doc USING HASH(did);
 ```
 
-上述doc表中，id是一个自增的整数，用作主键。 第二列did是doc id的意思，是sha256对最终处理过的文件进行哈希后得到的值，也是最终文件的文件名，统一放在zterm.ai/t目录下。
-第三列是key，是用于加密该文档的密钥，是一个随机数，32字节。 ftype是文件的类型, 0表示纯文本文件，1表示视频文件。
+上述doc表中，id是一个自增的整数，用作主键。 第二列dt是该文档插入到doc中的时间。
+第三列did是文档编号Document ID的意思，是sha256对最终处理过的文件进行哈希后得到的值，也是最终文件的文件名，统一放在zterm.ai/t目录下。
+第四列是key，是用于加密该文档的密钥，是一个随机数，32字节。 typ是文件的类型, 0表示该文件被逻辑删除了。1表示纯文本文件，2表示视频文件，其它类型可以继续添加。
+
 txt列里面包含文本的原文。如果是视频文件，则这个域保存描述该视频的文字信息。 kw表示key word的意思，它是根据另外一个关键字表kw中的关键字，对txt域的内容进行提炼而形成的关键字列表。譬如：'vacuum:5|autovacuum:2|hash index:3|heap table:2'，则表示关键字vacuum在txt中出现了5次，autovacuum关键字出现了2次，"hash index"出现了3次，"heap table"出现了2次。 这些关键字必须是关键字表kw中存在。
 
 关键字列表kw的定义如下：
@@ -52,6 +57,7 @@ Usage: ./filekey secretkey pubkey filekey
 $ ./filekey 3d20bf6cfda5b0889b9b63479ee812407996abd58706cf4f1eb7655087f24838 022fb86a7a59174a7b30f8eef08e31518954e30969cd37b564c35982ce6c96344d 930f7a40a283c05d94b9fae80e2eace33fb1138f2e2e279ea94db46a34c52ebf
 KEYTOUSER : bf56ed20483a82b9162d2f442bf5f476e68fcb14556e91eec7b87731d9fe1414
 ```
+
 
 ## 反馈：
 有任何问题，发信到support@zterm.ai
