@@ -8,8 +8,7 @@
 <path d="M 100 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
 
 <path d="M 180 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
-<path d="M 260 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
-<path d="M 320 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
+<path d="M 240 45 v 20" stroke="#0000FF" stroke-width="1" fill="none"/>
 
 <text x="27" y="59" style="font-size:13px;font-family:'Arial'">k</text>
 <text x="46" y="59" style="font-size:13px;font-family:'Arial'">1</text>
@@ -17,13 +16,13 @@
 <text x="86" y="59" style="font-size:13px;font-family:'Arial'">0</text>
 
 <text x="120" y="60" style="font-size:13px;font-family:'Microsoft Yahei UI'">66字节</text>
-<text x="200" y="60" style="font-size:13px;font-family:'Microsoft Yahei UI'">64字节</text>
-<text x="270" y="60" style="font-size:13px;font-family:'Microsoft Yahei UI'">16字节</text>
+<text x="190" y="60" style="font-size:13px;font-family:'Microsoft Yahei UI'">16字节</text>
+<text x="260" y="60" style="font-size:13px;font-family:'Microsoft Yahei UI'">64字节</text>
 
 <path d="M 40 68 v 5 a 5 5 0 0 0 5 5 h 20 a 5 5 0 0 1 5 5 a 5 5 0 0 1 5 -5 h 20 a 5 5 0 0 0 5 -5 v -5" stroke="#000000" stroke-width="1" fill="none"/>
-<path d="M 180 68 v 5 a 5 5 0 0 0 5 5 h 30 a 5 5 0 0 1 5 5 a 5 5 0 0 1 5 -5 h 30 a 5 5 0 0 0 5 -5 v -5" stroke="#000000" stroke-width="1" fill="none"/>
+<path d="M 180 68 v 5 a 5 5 0 0 0 5 5 h 20 a 5 5 0 0 1 5 5 a 5 5 0 0 1 5 -5 h 20 a 5 5 0 0 0 5 -5 v -5" stroke="#000000" stroke-width="1" fill="none"/>
 <path d="M 100 42 v -5 a 5 5 0 0 1 5 -5 h 30 a 5 5 0 0 0 5 -5 a 5 5 0 0 0 5 5 h 30 a 5 5 0 0 1 5 5 v 5" stroke="#000000" stroke-width="1" fill="none"/>
-<path d="M 260 42 v -5 a 5 5 0 0 1 5 -5 h 20 a 5 5 0 0 0 5 -5 a 5 5 0 0 0 5 5 h 20 a 5 5 0 0 1 5 5 v 5" stroke="#000000" stroke-width="1" fill="none"/>
+<path d="M 240 42 v -5 a 5 5 0 0 1 5 -5 h 30 a 5 5 0 0 0 5 -5 a 5 5 0 0 0 5 5 h 30 a 5 5 0 0 1 5 5 v 5" stroke="#000000" stroke-width="1" fill="none"/>
 
 <text x="10" y="100" style="font-size:13px;font-family:'Microsoft Yahei'">1.协议的版本信息</text>
 <text x="180" y="100" style="font-size:13px;font-family:'Microsoft Yahei'">3.文档的编号</text>
