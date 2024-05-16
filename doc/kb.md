@@ -1,10 +1,15 @@
 # 知识库的设计
 
-目前知识库是PostgreSQL数据库中的一张表，名字叫做doc，表示document的意思。它的具体定义如下：
+知识库分为两张表，一张表叫做doc，保存着我们原创的知识，第二张表叫做web，保存着我们从互联网上找到的质量比较高的文档。
+
+## 原创的知识库
+
+原创的知识库保存在PostgreSQL数据库中的一张表，名字叫做doc，表示document的意思。它的具体定义如下：
 
 ```
 DROP TABLE doc;
-CREATE TABLE doc (
+CREATE TABLE doc 
+(
 	idx BIGSERIAL PRIMARY KEY,
 	dte TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
 	ftp INTEGER DEFAULT 1,
@@ -12,7 +17,7 @@ CREATE TABLE doc (
 	num SMALLINT DEFAULT 1,
 	did CHAR(16),
 	key CHAR(64),
-	tle VARCHAR(256),
+	tle VARCHAR(512),
 	txt TEXT,
 	kwd TEXT,
 	ref TEXT
@@ -40,8 +45,36 @@ https://www.postgresql.org/docs/current/datatype-character.html
 - num : 如果该文档属于某一个系列，则本列表示本文档是该系列文档的第几篇。一个系列的文档的第一篇的编号是1，最多有256篇。 本列的缺省值为1。
 - did : 文档加密后的标识，具有唯一性，为16个字节。
 - key : 文档的加密密钥。
-- tle : 文档的标题。 这个信息是在文档入口的时候，从文档的第一行中提取的，因为文档的第一行的格式固定是 #加上文档的标题。
+- tle : 文档的标题。 这个信息是在文档入库的时候，从文档的第一行中提取的，因为文档的第一行的格式固定是 #加上文档的标题。
 - txt : 原始文档的内容。这是最有价值的部分。
 - kwd : key words 从该文档中提取的关键字信息。譬如：vacuum,3|hash index,2|WAL,5， 则表示该文档中vacuum这个关键字出现了3次，hash index这个关键字出现了2次，WAL这个关键字出现5次。
 - ref : 本文档的参考文档，可能为空。
+
+## 互联网上的知识库
+
+表web保存着我们从互联网上找到的质量比较高的文档。它的具体定义如下：
+
+```
+DROP TABLE web;
+CREATE TABLE web 
+(
+	idx BIGSERIAL PRIMARY KEY,
+	dte TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+	bad INTEGER DEFAULT 0,
+	tle VARCHAR(512) NOT NULL,
+	url VARCHAR(1024) NOT NULL,
+	kwd TEXT
+);
+
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ubuntu;
+GRANT USAGE, SELECT ON SEQUENCE web_idx_seq TO ubuntu;
+CREATE INDEX web_url_hash ON web USING HASH(url);
+```
+本表的各列具体含义解释如下：
+
+- idx : 每次增加一的序列号，唯一性地表示一篇文档。譬如它的值是：1,2,3,4,5,6...不断增加。这一列是主键(primary key)。
+- dte : 文档入库或者修改后的时间戳。
+- bad : 该文档是否有效，1表示无效了，0表示有效。
+- url : 原始文档的链接。
+- kwd : key words 从该文档中提取的关键字信息。譬如：vacuum,3|hash index,2|WAL,5， 则表示该文档中vacuum这个关键字出现了3次，hash index这个关键字出现了2次，WAL这个关键字出现5次。
 
