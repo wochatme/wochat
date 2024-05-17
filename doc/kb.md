@@ -28,13 +28,11 @@ GRANT USAGE, SELECT ON SEQUENCE doc_idx_seq TO ubuntu;
 CREATE INDEX doc_hash ON doc USING HASH(did);
 ```
 
-这张表中最重要的列是txt列，它里面存储了原始文档。原始文档的内容是自包含的，即：本文档内容的完整性不依赖任何外部信息。 文档是纯文本的，尽量采用MarkDown格式。开始两行的内容是统一的，模板如下：
+这张表中最重要的列是txt列，它里面存储了原始文档。原始文档的内容是自包含的，即：本文档内容的完整性不依赖任何外部信息。 文档是纯文本的，尽量采用MarkDown格式。第一行的内容是统一的，模板如下：
 ```
 # This Is The Title of This Document
-https://www.postgresql.org/docs/current/datatype-character.html
 ```
-
-我们可以看出，第一行是一个#，后面跟着这篇文档的标题。文档入库程序在把一篇新文档插入到doc表中时，会解析这两行，并把文档标题更新到tle这一列。tle这一列包含的是文档标题。 第二行是这个文档的原始出处，可能没有，就是我们原创的文档。 如果文档中包含图片，图片是以base64格式的形式嵌入到文档中，保证文档的内容的自包含性，即：不再依赖任何外部的信息。如果文档中包含SVG格式，也同样是嵌入到文档中，保证文档的自包含性。
+我们可以看出，第一行是一个#，后面跟着这篇文档的标题。文档入库程序在把一篇新文档插入到doc表中时，会解析这两行，并把文档标题更新到tle这一列。tle这一列包含的是文档标题。 如果文档中包含图片，图片是以base64格式的形式嵌入到文档中，保证文档的内容的自包含性，即：不再依赖任何外部的信息。如果文档中包含SVG格式，也同样是嵌入到文档中，保证文档的自包含性。
 
 本表的各列具体含义解释如下：
 
@@ -78,3 +76,23 @@ CREATE INDEX web_url_hash ON web USING HASH(url);
 - url : 原始文档的链接。
 - kwd : key words 从该文档中提取的关键字信息。譬如：vacuum,3|hash index,2|WAL,5， 则表示该文档中vacuum这个关键字出现了3次，hash index这个关键字出现了2次，WAL这个关键字出现5次。
 
+## 关键词列表
+
+```
+DROP TABLE kwd;
+CREATE TABLE kwd 
+(
+	idx BIGSERIAL PRIMARY KEY,
+	dte TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+	key VARCHAR(128) NOT NULL
+);
+
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ubuntu;
+GRANT USAGE, SELECT ON SEQUENCE kwd_idx_seq TO ubuntu;
+CREATE INDEX kwd_hash ON kwd USING HASH(key);
+```
+本表的各列具体含义解释如下：
+
+- idx : 每次增加一的序列号，唯一性地表示一篇文档。譬如它的值是：1,2,3,4,5,6...不断增加。这一列是主键(primary key)。
+- dte : 关键词入库或者修改后的时间戳。
+- key : 关键词
