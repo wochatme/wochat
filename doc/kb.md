@@ -12,6 +12,7 @@ CREATE TABLE doc
 (
 	idx BIGSERIAL PRIMARY KEY,
 	dte TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+	ltp INTEGER DEFAULT 0,
 	ftp INTEGER DEFAULT 1,
 	ser BIGINT DEFAULT 0,
 	num SMALLINT DEFAULT 1,
@@ -38,6 +39,7 @@ CREATE INDEX doc_hash ON doc USING HASH(did);
 
 - idx : 每次增加一的序列号，唯一性地表示一篇文档。譬如它的值是：1,2,3,4,5,6...不断增加。这一列是主键(primary key)。
 - dte : 文档入库或者修改后的时间戳。
+- ltp : 文档的语言，0表示英语，1表示中文。
 - ftp : file type ，文档的类型，缺省值为1，表示文本文件。 值2表示我们私有的视频格式。
 - ser : 文档可能是一个系列，在这种情况下，ser指向了idx列中的某一个值，该值锁定的文档即为该系列文档的第一篇。缺省值为0，表示该文档不属于一个系列，独立成篇。
 - num : 如果该文档属于某一个系列，则本列表示本文档是该系列文档的第几篇。一个系列的文档的第一篇的编号是1，最多有256篇。 本列的缺省值为1。
